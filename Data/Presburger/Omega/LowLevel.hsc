@@ -8,17 +8,20 @@ module Data.Presburger.Omega.LowLevel
     (Presburger,
      OmegaSet,
      OmegaRel,
+
+     -- * Queries on sets and relations
      isLowerBoundSatisfiable, isUpperBoundSatisfiable,
      isObviousTautology, isDefiniteTautology,
      isExact, isInexact, isUnknown, queryDNFSet,
 
-     VarHandle,
-     Coefficient(..),
-     FormulaDef,
-     conjunction, disjunction, negation,
-     qForall, qExists,
-     inequality, equality,
+     -- * Constructing formulas, sets, and relations
+     Formula,
      true, false,
+     conjunction, disjunction, negation,
+     VarHandle,
+     qForall, qExists,
+     Coefficient, coefficient,
+     inequality, equality,
      newOmegaSet, newOmegaRel
      )
 where
@@ -30,10 +33,6 @@ where
 import Control.Monad
 import Data.Int
 import Data.List
-import qualified Data.Map as Map
-import Data.Map(Map)
-import qualified Data.Set as Set
-import Data.Set(Set)
 import Data.Word
 import Foreign.C
 import Foreign.ForeignPtr
@@ -43,9 +42,12 @@ import Foreign.Ptr
 import Foreign.Storable
 import System.IO.Unsafe(unsafePerformIO)
 
+-------------------------------------------------------------------------------
+-- Data types, classes, and functions imported from C++
+
 -- External data types, these have the same name as in C.
 data Relation                   -- A set or relation
-data Formula                    -- A logic formula
+data Form                       -- A logic formula (Formula)
 data F_And                      -- A conjunction
 data F_Declaration              -- A forall or exists formula
 data Var_Decl                   -- A handle to a variable
@@ -58,14 +60,14 @@ data GEQ_Iterator               -- Iterator over a set of GEQ constraints
 data GEQ_Handle                 -- Handle to a GEQ constraint
 data Constr_Vars_Iter           -- Iterate over coefficients in a constraint
 
-class Constraint a
+class Constraint a              -- The 'Constraint' base class
 
 instance Constraint EQ_Handle
 instance Constraint GEQ_Handle
 
 -- Pointers to external data types
 type C_Relation         = Ptr Relation
-type C_Formula          = Ptr Formula
+type C_Form             = Ptr Form
 type C_And              = Ptr F_And
 type C_Quantifier       = Ptr F_Declaration
 type C_Var              = Ptr Var_Decl
@@ -80,9 +82,9 @@ type C_Constr_Vars_Iter = Ptr Constr_Vars_Iter
 
 -- Everything containing a formula is an instance of class Logical
 class Logical f where
-    add_and    :: f -> IO C_Formula
-    add_or     :: f -> IO C_Formula
-    add_not    :: f -> IO C_Formula
+    add_and    :: f -> IO C_Form
+    add_or     :: f -> IO C_Form
+    add_not    :: f -> IO C_Form
     add_forall :: f -> IO C_Quantifier
     add_exists :: f -> IO C_Quantifier
     convert_to_and :: f -> IO C_And
@@ -94,12 +96,12 @@ instance Logical C_Relation where
     add_not    = relation_add_not
     add_forall = relation_add_forall
     add_exists = relation_add_exists
-    -- We take advantage of the fact that C_And is a subclass of C_Formula
+    -- We take advantage of the fact that C_And is a subclass of C_Form
     -- here, and simply cast the pointer.
     convert_to_and r = liftM castPtr $ relation_add_and r
     finalize   = relation_finalize
 
-instance Logical C_Formula where
+instance Logical C_Form where
     add_and    = formula_add_and
     add_or     = formula_add_or
     add_not    = formula_add_not
@@ -108,8 +110,8 @@ instance Logical C_Formula where
     convert_to_and = formula_to_and
     finalize   = formula_finalize
 
--- C_And is a subclass of C_Formula and implements all its methods.
--- Consequently, we simply cast to C_Formula
+-- C_And is a subclass of C_Form and implements all its methods.
+-- Consequently, we simply cast to C_Form
 instance Logical C_And where
     add_and    = formula_add_and . castPtr
     add_or     = formula_add_or . castPtr
@@ -119,8 +121,8 @@ instance Logical C_And where
     convert_to_and = return
     finalize   = formula_finalize . castPtr
 
--- C_Quantifier is a subclass of C_Formula and implements all its methods.
--- Consequently, we simply cast to C_Formula
+-- C_Quantifier is a subclass of C_Form and implements all its methods.
+-- Consequently, we simply cast to C_Form
 instance Logical C_Quantifier where
     add_and    = formula_add_and . castPtr
     add_or     = formula_add_or . castPtr
@@ -165,11 +167,11 @@ foreign import ccall safe "HS_omega.h" is_unknown
     :: C_Relation -> IO Bool
 
 foreign import ccall safe "HS_omega.h" relation_add_and
-    :: C_Relation -> IO C_Formula
+    :: C_Relation -> IO C_Form
 foreign import ccall safe "HS_omega.h" relation_add_or
-    :: C_Relation -> IO C_Formula
+    :: C_Relation -> IO C_Form
 foreign import ccall safe "HS_omega.h" relation_add_not
-    :: C_Relation -> IO C_Formula
+    :: C_Relation -> IO C_Form
 foreign import ccall safe "HS_omega.h" relation_add_forall
     :: C_Relation -> IO C_Quantifier
 foreign import ccall safe "HS_omega.h" relation_add_exists
@@ -179,17 +181,17 @@ foreign import ccall safe "HS_omega.h" relation_finalize
 
 -- These functions take formula pointer arguments
 foreign import ccall safe "HS_omega.h" formula_add_and
-    :: C_Formula -> IO C_Formula
+    :: C_Form -> IO C_Form
 foreign import ccall safe "HS_omega.h" formula_add_or
-    :: C_Formula -> IO C_Formula
+    :: C_Form -> IO C_Form
 foreign import ccall safe "HS_omega.h" formula_add_not
-    :: C_Formula -> IO C_Formula
+    :: C_Form -> IO C_Form
 foreign import ccall safe "HS_omega.h" formula_add_forall
-    :: C_Formula -> IO C_Quantifier
+    :: C_Form -> IO C_Quantifier
 foreign import ccall safe "HS_omega.h" formula_add_exists
-    :: C_Formula -> IO C_Quantifier
+    :: C_Form -> IO C_Quantifier
 foreign import ccall safe "HS_omega.h" formula_finalize
-    :: C_Formula -> IO ()
+    :: C_Form -> IO ()
 
 foreign import ccall safe "HS_omega.h" declaration_declare
     :: C_Quantifier -> IO C_Var
@@ -197,7 +199,7 @@ foreign import ccall safe "HS_omega.h" declaration_declare
 -- If the argument is a C_And, the argument is returned;
 -- otherwise, add_and is called
 foreign import ccall safe "HS_omega.h" formula_to_and
-    :: C_Formula -> IO C_And
+    :: C_Form -> IO C_And
 
 foreign import ccall safe "HS_omega.h" add_constraint
     :: C_And -> Bool -> CInt -> Ptr CInt -> Ptr C_Var -> CInt -> IO ()
@@ -253,188 +255,6 @@ foreign import ccall safe "HS_omega.h" debug_print_geq
     :: C_GEQ_Handle -> IO ()
 
 -------------------------------------------------------------------------------
--- Exported interface
-
-data OmegaSet = OmegaSet { sPtr :: {-# UNPACK #-} !(ForeignPtr Relation)
-                         , sDom :: [VarHandle]
-                         }
-
-data OmegaRel = OmegaRel { rPtr :: {-# UNPACK #-} !(ForeignPtr Relation)
-                         , rDom :: [VarHandle]
-                         , rRng :: [VarHandle]
-                         }
-
--- Omega sets and relations are in class Presburger
-class Presburger a where
-    pPtr :: a -> ForeignPtr Relation
-
-instance Presburger OmegaSet where
-    pPtr = sPtr
-
-instance Presburger OmegaRel where
-    pPtr = rPtr
-
--- Wrap a relation or set as a ForeignPtr so it gets finalized
-wrapOmegaSet :: C_Relation -> [VarHandle] -> IO OmegaSet
-wrapOmegaSet ptr dom = do
-  foreignptr <- newForeignPtr ptr_to_free_relation ptr
-  return $! OmegaSet { sPtr = foreignptr
-                     , sDom = dom
-                     }
-
-wrapOmegaRel :: C_Relation -> [VarHandle] -> [VarHandle] -> IO OmegaRel
-wrapOmegaRel ptr dom rng = do
-  foreignptr <- newForeignPtr ptr_to_free_relation ptr
-  return $! OmegaRel { rPtr = foreignptr
-                     , rDom = dom
-                     , rRng = rng }
-
--- Use a wrapped relation or set
-withPresburger :: Presburger a => a -> (C_Relation -> IO b) -> IO b
-withPresburger p = withForeignPtr (pPtr p)
-
-instance Show OmegaSet where
-    show rel = unsafePerformIO $ withPresburger rel $ \ptr -> do
-        -- Call relation_show to get a C string, then convert to String
-        cStr <- relation_show ptr
-        str  <- peekCString cStr
-        free cStr
-        return str
-
-instance Show OmegaRel where
-    show rel = unsafePerformIO $ withPresburger rel $ \ptr -> do
-        -- Call relation_show to get a C string, then convert to String
-        cStr <- relation_show ptr
-        str  <- peekCString cStr
-        free cStr
-        return str
-
-isLowerBoundSatisfiable, isUpperBoundSatisfiable, isObviousTautology,
-    isDefiniteTautology, isExact, isInexact, isUnknown
-    :: Presburger a => a -> IO Bool
-
-isLowerBoundSatisfiable rel = withPresburger rel is_lower_bound_satisfiable
-isUpperBoundSatisfiable rel = withPresburger rel is_upper_bound_satisfiable
-isObviousTautology rel      = withPresburger rel is_obvious_tautology
-isDefiniteTautology rel     = withPresburger rel is_definite_tautology
-isExact rel                 = withPresburger rel is_exact
-isInexact rel               = withPresburger rel is_inexact
-isUnknown rel               = withPresburger rel is_unknown
-
--- A handle to a variable
-newtype VarHandle = VarHandle { unVarHandle :: C_Var }
-
--- A formula definition
-newtype FormulaDef = FD {runFD :: forall a. Logical a => a -> IO ()}
- 
--- A multiplicative coefficient for a variable.
-data Coefficient = Coeff { coeffVar :: {-# UNPACK #-} !VarHandle
-                         , coeffValue :: {-# UNPACK #-} !Int}
-
-instance Show Coefficient where
-    show (Coeff v n) = "(" ++ show n ++ " * " ++ show (unVarHandle v) ++ ")"
-instance Storable Coefficient where
-    sizeOf _ = #{size Variable_Info_struct}
-    alignment _ = #{alignof Variable_Info_struct}
-    peek p = do
-      var  <- #{peek Variable_Info_struct, var} p :: IO C_Var
-      coef <- #{peek Variable_Info_struct, coef} p :: IO #{type coefficient_t}
-      return $ Coeff { coeffVar = VarHandle var
-                     , coeffValue = fromIntegral coef
-                     }
-
--- Create an omega relation.
--- The omega library lets you initialize an Omega relation,
--- then start putting formulas inside of it.  This
--- interface takes an initializer function as a parameter.  
-newOmegaSet :: Int -> ([VarHandle] -> FormulaDef) -> IO OmegaSet
-newOmegaSet numVars init = do
-  rel <- new_set (fromIntegral numVars)
-
-  -- Look up the ID for each variable in the tuple.  Variables are ordered
-  -- from last to first because the last variable is "innermost," has
-  -- de Bruijn index 1, and belongs at position 1 in the list.
-  freeVarIDs <- mapM (liftM VarHandle . set_var rel)
-                [fromIntegral numVars, fromIntegral numVars - 1 .. 1]
-
-  runFD (init freeVarIDs) rel
-  wrapOmegaSet rel freeVarIDs
-
-newOmegaRel :: Int
-            -> Int
-            -> ([VarHandle] -> [VarHandle] -> FormulaDef)
-            -> IO OmegaRel
-newOmegaRel numInputs numOutputs init = do
-  rel <- new_relation (fromIntegral numInputs) (fromIntegral numOutputs)
-
-  -- Look up the IDs for the input and output variables.
-  outputVarIds <- mapM (liftM VarHandle . output_var rel)
-                  [fromIntegral numOutputs, fromIntegral numOutputs - 1 .. 1]
-  inputVarIds <- mapM (liftM VarHandle . input_var rel)
-                 [fromIntegral numInputs, fromIntegral numInputs - 1 .. 1]
-
-  runFD (init inputVarIds outputVarIds) rel
-  wrapOmegaRel rel inputVarIds outputVarIds
-
-conjunction, disjunction :: [FormulaDef] -> FormulaDef
-conjunction formulaDefs = FD $ \f -> do
-  newF <- add_and f
-  mapM_ (\func -> runFD func newF) formulaDefs
-  finalize newF
-
-disjunction formulaDefs = FD $ \f -> do
-  newF <- add_or f
-  mapM_ (\func -> runFD func newF) formulaDefs
-  finalize newF
-
-negation :: FormulaDef -> FormulaDef
-negation formulaDef = FD $ \f -> do
-  newF <- add_not f
-  runFD formulaDef newF
-  finalize newF
-
-qForall, qExists :: (VarHandle -> FormulaDef) -> FormulaDef
-qForall makeBody = FD $ \f -> do
-  newFormula <- add_forall f
-  localVar <- declaration_declare newFormula
-  runFD (makeBody (VarHandle localVar)) newFormula
-  finalize newFormula
-
-qExists makeBody = FD $ \f -> do
-  newFormula <- add_exists f
-  localVar <- declaration_declare newFormula
-  runFD (makeBody (VarHandle localVar)) newFormula
-  finalize newFormula
-
-addConstraint :: Bool -> [Coefficient] -> Int -> C_And -> IO ()
-addConstraint kind terms constant formula = do
-  let numTerms     = length terms
-      numTermsCInt = fromIntegral numTerms
-      constantCInt = fromIntegral constant
-      coefficients = map (fromIntegral . coeffValue) terms
-      variables    = map ((\(VarHandle h) -> h) . coeffVar) terms
-
-  -- Marshal the coefficients and variables to C as arrays
-  withArray coefficients $ \coeffPtr ->
-      withArray variables $ \varPtr ->
-          -- then, call code to set the constraint
-          add_constraint formula kind numTermsCInt coeffPtr varPtr constantCInt
-
-inequality :: [Coefficient] -> Int -> FormulaDef
-inequality terms constant = FD $ \formula ->
-    addConstraint False terms constant =<< convert_to_and formula
-
-equality :: [Coefficient] -> Int -> FormulaDef
-equality terms constant = FD $ \formula ->
-    addConstraint True terms constant =<< convert_to_and formula
-
-true :: FormulaDef
-true = equality [] 0
-
-false :: FormulaDef
-false = equality [] 1
-
--------------------------------------------------------------------------------
 -- Marshalling from Omega Library to Haskell
 
 class Iterator i a | i -> a where next :: i -> IO a
@@ -451,7 +271,8 @@ instance Iterator C_EQ_Iterator C_EQ_Handle where
 instance Iterator C_GEQ_Iterator C_GEQ_Handle where
     next = geqs_next
 
-foreach :: Iterator i (Ptr b) => (a -> (Ptr b) -> IO a) -> a -> i -> IO a
+-- Imperatively accumulate over the contents of the iterator
+foreach :: Iterator i (Ptr b) => (a -> Ptr b -> IO a) -> a -> i -> IO a
 foreach f x iter = visit x
     where
       visit x = do y <- next iter
@@ -500,6 +321,7 @@ iterateGeqs f x conj = do
         geq_handle_free geqHdl
         return x'
 
+-- Read the coefficients from a Constraint
 peekConstraintVars :: Constraint a => Ptr a -> IO [Coefficient]
 peekConstraintVars cst = do
   iter <- constraint_get_coefficients cst
@@ -526,10 +348,11 @@ peekConstraintVars cst = do
         coeff <- peek c_var_info
         getCoefficients iter c_var_info (coeff:coeffs)
 
+-- | Print a low-level, debugging representation of the set.
 queryDNFSet :: OmegaSet -> IO ()
-queryDNFSet s = withPresburger s $ iterateDNF foo ()
+queryDNFSet s = withPresburger s $ iterateDNF doConjunct ()
     where
-      foo acc conjunct = do
+      doConjunct acc conjunct = do
         -- Find existentially bound variables in this conjunct, which
         -- Omega calls "wildcard variables"
         wildcardVars <- iterateConjVars findWildcards [] conjunct
@@ -559,3 +382,219 @@ queryDNFSet s = withPresburger s $ iterateDNF foo ()
         print coefficients
         print constant
         return ()
+
+-------------------------------------------------------------------------------
+-- Exported interface
+
+-- | A set of integers in Z^n.
+-- This is a wrapper around the Omega library's Relation type.  
+data OmegaSet = OmegaSet { sPtr :: {-# UNPACK #-} !(ForeignPtr Relation)
+                         , sDom :: [VarHandle]
+                         }
+
+-- | A relation from Z^m to Z^n.
+-- This is a wrapper around the Omega library's Relation type.
+data OmegaRel = OmegaRel { rPtr :: {-# UNPACK #-} !(ForeignPtr Relation)
+                         , rDom :: [VarHandle]
+                         , rRng :: [VarHandle]
+                         }
+
+-- Wrap a relation or set as a ForeignPtr so it gets finalized
+wrapOmegaSet :: C_Relation -> [VarHandle] -> IO OmegaSet
+wrapOmegaSet ptr dom = do
+  foreignptr <- newForeignPtr ptr_to_free_relation ptr
+  return $! OmegaSet { sPtr = foreignptr
+                     , sDom = dom
+                     }
+
+wrapOmegaRel :: C_Relation -> [VarHandle] -> [VarHandle] -> IO OmegaRel
+wrapOmegaRel ptr dom rng = do
+  foreignptr <- newForeignPtr ptr_to_free_relation ptr
+  return $! OmegaRel { rPtr = foreignptr
+                     , rDom = dom
+                     , rRng = rng }
+
+-- Use a wrapped relation or set
+withPresburger :: Presburger a => a -> (C_Relation -> IO b) -> IO b
+withPresburger p = withForeignPtr (pPtr p)
+
+instance Show OmegaSet where
+    show rel = unsafePerformIO $ withPresburger rel $ \ptr -> do
+        -- Call relation_show to get a C string, then convert to String
+        cStr <- relation_show ptr
+        str  <- peekCString cStr
+        free cStr
+        return str
+
+instance Show OmegaRel where
+    show rel = unsafePerformIO $ withPresburger rel $ \ptr -> do
+        -- Call relation_show to get a C string, then convert to String
+        cStr <- relation_show ptr
+        str  <- peekCString cStr
+        free cStr
+        return str
+
+-- | Data types containing Presburger formulae.
+class Presburger a where
+    pPtr :: a -> ForeignPtr Relation
+
+instance Presburger OmegaSet where pPtr = sPtr
+instance Presburger OmegaRel where pPtr = rPtr
+
+-- | Create an Omega set.
+newOmegaSet :: Int              -- ^ Number of variables in the set
+            -> ([VarHandle] -> Formula) -- ^ Formula defining the set's members
+            -> IO OmegaSet
+newOmegaSet numVars init = do
+  rel <- new_set (fromIntegral numVars)
+
+  -- Look up the ID for each variable in the tuple.  Variables are ordered
+  -- from last to first because the last variable is "innermost," has
+  -- de Bruijn index 1, and belongs at position 1 in the list.
+  freeVarIDs <- mapM (liftM VarHandle . set_var rel)
+                [fromIntegral numVars, fromIntegral numVars - 1 .. 1]
+
+  runFD (init freeVarIDs) rel
+  wrapOmegaSet rel freeVarIDs
+
+-- | Create an Omega relation.
+newOmegaRel :: Int              -- ^ Number of input variables
+            -> Int              -- ^ Number of output variables
+            -> ([VarHandle] -> [VarHandle] -> Formula)
+                                -- ^ Formula defining the relation;
+                                -- the input and output variables are
+                                -- passed as parameters
+            -> IO OmegaRel
+newOmegaRel numInputs numOutputs init = do
+  rel <- new_relation (fromIntegral numInputs) (fromIntegral numOutputs)
+
+  -- Look up the IDs for the input and output variables.
+  outputVarIds <- mapM (liftM VarHandle . output_var rel)
+                  [fromIntegral numOutputs, fromIntegral numOutputs - 1 .. 1]
+  inputVarIds <- mapM (liftM VarHandle . input_var rel)
+                 [fromIntegral numInputs, fromIntegral numInputs - 1 .. 1]
+
+  runFD (init inputVarIds outputVarIds) rel
+  wrapOmegaRel rel inputVarIds outputVarIds
+
+isLowerBoundSatisfiable, isUpperBoundSatisfiable, isObviousTautology,
+    isDefiniteTautology, isExact, isInexact, isUnknown
+    :: Presburger a => a -> IO Bool
+
+isLowerBoundSatisfiable rel = withPresburger rel is_lower_bound_satisfiable
+isUpperBoundSatisfiable rel = withPresburger rel is_upper_bound_satisfiable
+isObviousTautology rel      = withPresburger rel is_obvious_tautology
+isDefiniteTautology rel     = withPresburger rel is_definite_tautology
+isExact rel                 = withPresburger rel is_exact
+isInexact rel               = withPresburger rel is_inexact
+isUnknown rel               = withPresburger rel is_unknown
+
+-- | A boolean-valued Presburger formula.
+
+-- This is actually a function that builds a Presburger formula.
+newtype Formula = FD {runFD :: forall a. Logical a => a -> IO ()}
+
+-- | Logical conjunction (and).
+conjunction :: [Formula] -> Formula
+conjunction formulaDefs = FD $ \f -> do
+  newF <- add_and f
+  mapM_ (\func -> runFD func newF) formulaDefs
+  finalize newF
+
+-- | Logical disjunction (or).
+disjunction :: [Formula] -> Formula
+disjunction formulaDefs = FD $ \f -> do
+  newF <- add_or f
+  mapM_ (\func -> runFD func newF) formulaDefs
+  finalize newF
+
+-- | Logical negation.
+negation :: Formula -> Formula
+negation formulaDef = FD $ \f -> do
+  newF <- add_not f
+  runFD formulaDef newF
+  finalize newF
+
+-- | Universal quantification.  The 'VarHandle' parameter is the variable
+-- bound by the quantifier.
+qForall :: (VarHandle -> Formula) -> Formula
+qForall makeBody = FD $ \f -> do
+  newFormula <- add_forall f
+  localVar <- declaration_declare newFormula
+  runFD (makeBody (VarHandle localVar)) newFormula
+  finalize newFormula
+
+-- | Existential quantification.  The 'VarHandle' parameter is the variable
+-- bound by the quantifier.
+qExists :: (VarHandle -> Formula) -> Formula
+qExists makeBody = FD $ \f -> do
+  newFormula <- add_exists f
+  localVar <- declaration_declare newFormula
+  runFD (makeBody (VarHandle localVar)) newFormula
+  finalize newFormula
+
+-- Add an equality or inequality constraint to a conjunction.
+addConstraint :: Bool -> [Coefficient] -> Int -> C_And -> IO ()
+addConstraint kind terms constant formula = do
+  let numTerms     = length terms
+      numTermsCInt = fromIntegral numTerms
+      constantCInt = fromIntegral constant
+      coefficients = map (fromIntegral . coeffValue) terms
+      variables    = map ((\(VarHandle h) -> h) . coeffVar) terms
+
+  -- Marshal the coefficients and variables to C as arrays
+  withArray coefficients $ \coeffPtr ->
+      withArray variables $ \varPtr ->
+          -- then, call code to set the constraint
+          add_constraint formula kind numTermsCInt coeffPtr varPtr constantCInt
+
+-- | Construct an inequation of the form @a*x + b*y + ... + d >= 0@.
+inequality :: [Coefficient] -> Int -> Formula
+inequality terms constant = FD $ \formula ->
+    addConstraint False terms constant =<< convert_to_and formula
+
+-- | Construct an equation of the form @a*x + b*y + ... + d = 0@.
+equality :: [Coefficient] -> Int -> Formula
+equality terms constant = FD $ \formula ->
+    addConstraint True terms constant =<< convert_to_and formula
+
+-- | Truth.
+true :: Formula
+true = equality [] 0
+
+-- | Falsity.
+false :: Formula
+false = equality [] 1
+
+-- | A variable in a formula.
+
+-- These data structures are owned by OmegaSet or OmegaRel instances,
+-- which take care of allocation and deallocation.
+newtype VarHandle = VarHandle { unVarHandle :: C_Var }
+
+-- | A multiplicative term in a formula, representing a variable
+-- multiplied an integer constant.
+data Coefficient =
+    Coeff { coeffVar :: {-# UNPACK #-} !VarHandle
+          , coeffValue :: {-# UNPACK #-} !Int
+          }
+
+-- | An integer-valued term @n * v@ in a formula.
+coefficient :: Int              -- ^ multiplier
+            -> VarHandle        -- ^ variable
+            -> Coefficient
+coefficient n v = Coeff v n
+
+instance Show Coefficient where
+    show (Coeff v n) = "(" ++ show n ++ " * " ++ show (unVarHandle v) ++ ")"
+
+instance Storable Coefficient where
+    sizeOf _ = #{size Variable_Info_struct}
+    alignment _ = #{alignof Variable_Info_struct}
+    peek p = do
+      var  <- #{peek Variable_Info_struct, var} p :: IO C_Var
+      coef <- #{peek Variable_Info_struct, coef} p :: IO #{type coefficient_t}
+      return $ Coeff { coeffVar = VarHandle var
+                     , coeffValue = fromIntegral coef
+                     }
+

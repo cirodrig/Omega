@@ -2,19 +2,19 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns
                 -XTypeFamilies
                 -XEmptyDataDecls
-                -XFlexibleInstances #-}
+                -XFlexibleInstances
+                -XFlexibleContexts #-}
 module Data.Presburger.Omega.Expr
-    (ExpTuple(..),
-     CAUOp(..),
+    (CAUOp(..),
      PredOp(..),
      Quantifier(..),
      Var(..),
      Exp(..),
+     Term,
      deconstructSum, rebuildSum,
      deconstructProduct, rebuildProduct,
      zero, unit, isZeroOf, isUnitOf,
      expEqual,
-     unzipExpTuple,
      simplify,
      expToFormula,
      rename,
@@ -33,13 +33,8 @@ import Debug.Trace
 
 import Data.Presburger.Omega.LowLevel
 
--- The tuple type used by expressions is a newtype of a list type.
-
-newtype ExpTuple = ExpTuple [Int]
-    deriving(Eq)
-
--- Commutative and associative operators with a unit.
--- The type parameter gives the operator's parameter and return type.
+-- | A commutative and associative operator with a unit.
+-- The type parameter 't' gives the operator's parameter and return type.
 data CAUOp t where
     Sum  :: CAUOp Int
     Prod :: CAUOp Int
@@ -59,7 +54,7 @@ instance Show (CAUOp t) where
     show Conj = "Conj"
     show Disj = "Disj"
 
--- Predicates on integers.
+-- | Predicate operators on integer terms.
 data PredOp = IsZero | IsGEZ
               deriving(Eq, Show)
 
@@ -73,26 +68,27 @@ data Var = Bound {-# UNPACK #-} !Int | Free {-# UNPACK #-} !Int
 
 -- Expressions
 data Exp t where
-    -- Commutative and associative expressions.
-    -- The literal part of the expression is factored out.
-    CAUE :: !(CAUOp t) -> !t -> [Exp t] -> Exp t
+    -- A commutative and associative expression
+    CAUE :: !(CAUOp t)          -- operator
+         -> !t                  -- literal operand
+         -> [Exp t]             -- other operands
+         -> Exp t
 
-    -- Predicates on integers
-    PredE :: !PredOp -> Exp Int -> Exp Bool
+    -- A predicate on an integer term
+    PredE :: !PredOp            -- operator
+          -> Exp Int            -- integer operand
+          -> Exp Bool
 
     -- Boolean negation
     NotE :: Exp Bool -> Exp Bool
 
-    -- Literals
+    -- A literal
     LitE :: !t -> Exp t
 
-    -- Variables
+    -- A variable
     VarE :: !Var -> Exp t
 
-    -- Tuples of integers.  Implemented internally as lists.
-    TupleE :: [Exp Int] -> Exp ExpTuple
-
-    -- Expressions quantified over an integer variable.
+    -- An expression quantified over an integer variable
     QuantE :: !Quantifier -> Exp t -> Exp t
 
 isLitE :: Exp t -> Bool
@@ -143,12 +139,14 @@ unit Prod = 1
 unit Conj = True
 unit Disj = False
 
--- Check whether a literal is the zero of an operator
+-- | True if the literal is the operator's zero.
+isZeroOf :: t -> CAUOp t -> Bool
 l `isZeroOf` op = case zero op
                   of Nothing -> False
                      Just z  -> cauEq op l z
 
--- Check whether a literal is the unit of an operator
+-- | True if the literal is the operator's unit.
+isUnitOf :: t -> CAUOp t -> Bool
 l `isUnitOf` op = cauEq op (unit op) l
 
 -- Evaluate an operator on a list of literals
@@ -186,12 +184,6 @@ instance Show (Exp Bool) where
     showsPrec _ (QuantE q e) = showQuant q e
     showsPrec _ _            = error "instance Show Exp: unreachable case"
 
-instance Show (Exp ExpTuple) where
-    showsPrec _ (LitE l)     = shows l
-    showsPrec _ (TupleE xs)  = showTuple $ map shows xs
-    showsPrec _ (QuantE q e) = showQuant q e
-    showsPrec _ _            = error "instance Show Exp: unreachable case"
-
 -- Show a symbolic expression in parentheses
 showSExpr :: [ShowS] -> ShowS
 showSExpr ss z =
@@ -204,8 +196,11 @@ showTuple ss z =
     foldr ($) (showChar ']' $ z) (intersperse (showString ", ") ss)
 
 -- An ExpTuple value can be shown with the same syntax
-instance Show ExpTuple where
-    showsPrec _ (ExpTuple xs) = showTuple $ map shows xs
+showExpTuple :: Show (Exp t) => [Exp t] -> String
+showExpTuple xs = showsExpTuple xs []
+
+showsExpTuple :: Show (Exp t) => [Exp t] -> ShowS
+showsExpTuple xs = showTuple $ map shows xs
 
 -- Show a quantified expression, e.g. (Forall x. (x + 1))
 showQuant :: Show e => Quantifier -> e -> ShowS
@@ -227,8 +222,8 @@ showLiteral op l
 -------------------------------------------------------------------------------
 -- Syntactic equality on expressions
 
--- Decide whether two expressions are equal, taking into account commutativity
--- and associativity of CA expressions, and alpha-renaming.
+-- | Decide whether two expressions are equal, taking into account
+-- commutativity, associativity, and alpha-renaming.
 expEqual :: Eq t => Exp t -> Exp t -> Bool
 expEqual expr1 expr2 =
     case (expr1, expr2)
@@ -243,9 +238,6 @@ expEqual expr1 expr2 =
        (LitE l1, LitE l2) -> l1 == l2
 
        (VarE v1, VarE v2) -> v1 == v2
-
-       (TupleE es1, TupleE es2) ->
-          length es1 == length es2 && and (zipWith expEqual es1 es2)
 
        (QuantE q1 e1, QuantE q2 e2) ->
           q1 == q2 && expEqual e1 e2
@@ -272,14 +264,6 @@ findEqualExp searchE es = go es id
       go []     _                      = Nothing
 
 -------------------------------------------------------------------------------
--- Converting a tuple to a list of expressions
-
-unzipExpTuple :: Exp ExpTuple -> [Exp Int]
-unzipExpTuple (QuantE q e) = map (QuantE q) $ unzipExpTuple e
-unzipExpTuple (TupleE es)  = es
-unzipExpTuple _            = error "unzipExpTuple: Unexpected expression type"
-
--------------------------------------------------------------------------------
 -- Simplification rules
 
 -- This is the main rule for simplifying an expression.
@@ -289,9 +273,8 @@ unzipExpTuple _            = error "unzipExpTuple: Unexpected expression type"
 -- current term, but no other terms.
 -- Then complex simplifications are performed that restructure the current
 -- term and subtems.
---
--- To simplify, it's necessary to know the expression's free variables.
- 
+
+-- | Normalize an expression.
 simplify :: Exp t -> Exp t
 simplify e =
     complexSimplifications $ basicSimplifications $ simplifyRec e
@@ -304,7 +287,6 @@ simplifyRec expr =
        NotE e -> NotE $ simplify e
        LitE _ -> expr
        VarE v -> expr
-       TupleE es -> TupleE $ map simplify es
        QuantE q e -> QuantE q $ simplify e 
 
 basicSimplifications :: Exp t -> Exp t
@@ -448,7 +430,7 @@ lookupVar _ []         = error "lookupVar: variable index out of range"
 
 -- Convert a boolean expression to a formula.  The list of free variables is
 -- passed as a parameter.
-expToFormula :: [VarHandle] -> Exp Bool -> FormulaDef
+expToFormula :: [VarHandle] -> Exp Bool -> Formula
 expToFormula freeVars expr =
     case expr
     of CAUE op lit es
@@ -492,7 +474,7 @@ sumToConstraint freeVars expr =
     where
       deconstructTerm expr =
           case deconstructProduct expr
-          of (n, [VarE (Bound i)]) -> Coeff (lookupVar i freeVars) n
+          of (n, [VarE (Bound i)]) -> coefficient n $ lookupVar i freeVars
              (_, [VarE (Free _)]) -> error "sumToConstraint: cannot use \
                                            \free variable in constraint"
              _ -> error "sumToConstraint: cannot convert non-affine \
@@ -509,7 +491,6 @@ rename v1 v2 expr = rn expr
       rn expr@(LitE _)    = expr
       rn expr@(VarE v)    | v == v1   = VarE v2
                           | otherwise = expr
-      rn (TupleE es)      = TupleE $ map rn es
       rn (QuantE q e)     = QuantE q $ rename (bumpIndex v1) (bumpIndex v2) e
 
       -- Increment a de Bruijn index
@@ -537,7 +518,6 @@ bindVariables fvs expr = bind expr
                                            of Just n' -> VarE (Bound n')
                                               Nothing -> expr
                                  Bound n -> VarE $ Bound (shift n)
-      bind (TupleE es)      = TupleE $ map bind es
       bind (QuantE q e)     = QuantE q $ bind e
 
 -- Adjust bound variable bindings by adding 'shift' to all bound variable
@@ -556,6 +536,5 @@ adjustBindings offset shift e = adj e
                                             -> VarE $ Bound (n + shift)
                                         | otherwise
                                             -> expr
-      adj (TupleE es)      = TupleE $ map adj es
       adj (QuantE q e)     = QuantE q $ adjustBindings (offset + 1) shift e
 

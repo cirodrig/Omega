@@ -267,7 +267,7 @@ relation = braces $ do
   sequence_ $ replicate numVars unbind
 
   -- Return the relation
-  return $ Rel numVars (TupleE outExps) f
+  return $ Rel numVars outExps f
 
 readBoolExp :: String -> Either ParseError (Exp Bool)
 readBoolExp input =

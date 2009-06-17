@@ -84,6 +84,7 @@ autoConfigureOptions localBuildInfo = [libdirs, includedirs]
       -- Create a string "-I/usr/foo -I/usr/bar"
       cppflagsString =
           intercalate " " ["-I" ++ dir | dir <- includeDirs buildinfo]
+
       includedirs = "CPPFLAGS=" ++ cppflagsString
 
 -------------------------------------------------------------------------------
@@ -150,7 +151,6 @@ cleanOmega pkgDesc mlbi userhooks flags = do
 
       -- Extra files produced by configuration
       configFiles = ["configure", "config.log", "config.status", "Makefile"]
-
 
 -------------------------------------------------------------------------------
 -- Hooks
