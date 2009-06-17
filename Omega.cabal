@@ -1,21 +1,34 @@
-Name:		Omega
-Version:	0.1.1
-Cabal-Version:	>= 1.2
-Build-Type:	Custom
-License:	MIT
-License-File:	LICENSE
-Author:		Christopher Rodrigues
-Stability:	Alpha
-Synopsis:	Tools for manipulating Presburger arithmetic formulae.
-Category:	Data
+Name:			Omega
+Version:		0.1.1
+Cabal-Version:		>= 1.2
+Build-Type:		Custom
+License:		OtherLicense
+License-File:		LICENSE
+Author:			Christopher Rodrigues
+Maintainer:		cirodig@illinois.edu
+Stability:		Alpha
+Synopsis:		A library for manipulating Presburger arithmetic formulae
+Description:
+        This package provides an interface to the Omega library, which
+        provides tools for creating and performing logical operations on
+        Presburger arithmetic formulae.
+
+        The Omega library must be installed to build this package.  It can
+        be downloaded from
+        http://github.com/davewathaverford/the-omega-project using git.
+Category:		Data
+Extra-Source-Files:	configure.ac Makefile.in src/C_omega.h src/C_omega.cc
 
 Library
   Build-Depends:	base, parsec, pretty, containers
-  Exposed-Modules:	Data.Presburger.Omega Data.Presburger.Omega.Expr Data.Presburger.Omega.Set Data.Presburger.Omega.Rel Data.Presburger.Omega.LowLevel Data.Presburger.Omega.Parse
+  Exposed-Modules:
+        Data.Presburger.Omega
+        Data.Presburger.Omega.Expr
+        Data.Presburger.Omega.Set
+        Data.Presburger.Omega.Rel
+        Data.Presburger.Omega.LowLevel
+        Data.Presburger.Omega.Parse
   Extensions:		GADTs ScopedTypeVariables
   Build-Tools:		hsc2hs
   Include-Dirs:		src
   Extra-Libraries:	omega stdc++
-
-  -- This is only for testing on my own system
-  Extra-Lib-Dirs:	/usr/lib/gcc/i486-linux-gnu/4.1.2

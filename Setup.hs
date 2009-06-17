@@ -30,6 +30,12 @@ cmd1 >&&> cmd2 = do
 autoconfProgram = simpleProgram "autoconf"
 makeProgram = simpleProgram "make"
 
+-- Our single C++ source file is here
+cppSourceName = "src" </> "C_omega.cc"
+
+-- It becomes this object file
+cppObjectName = "build" </> "C_omega.o"
+
 -------------------------------------------------------------------------------
 -- Configuration
 
@@ -95,7 +101,6 @@ buildOmega pkgDesc lbi userhooks flags = do
   rawSystemProgramConf verb makeProgram (withPrograms lbi) ["all"]
 
   -- Add the object file to libraries
-  let objName = "build" </> "C_omega.o"
   let pkgId   = package $ localPkgDescr lbi
 
   let addStaticObjectFile objName libName =
@@ -103,11 +108,11 @@ buildOmega pkgDesc lbi userhooks flags = do
 
   when (withVanillaLib lbi) $
        let libName = buildDir lbi </> mkLibName pkgId
-       in addStaticObjectFile objName libName
+       in addStaticObjectFile cppObjectName libName
 
   when (withProfLib lbi) $
        let libName = buildDir lbi </> mkProfLibName pkgId
-       in addStaticObjectFile objName libName
+       in addStaticObjectFile cppObjectName libName
 
   when (withSharedLib lbi) $
        die "Sorry, this package is not set up to build shared libraries"
@@ -121,9 +126,11 @@ cleanOmega pkgDesc mlbi userhooks flags = do
   let verb = fromFlagOrDefault Verbosity.normal $ cleanVerbosity flags
 
   -- Clean extra files
-  mapM_ lenientRemoveFile files
+  unless (fromFlag $ cleanSaveConf flags) $ do
+    lenientRemoveFiles configFiles
+    lenientRemoveDirectory "autom4te.cache"
 
-  removeDirectoryRecursive "autom4te.cache"
+  lenientRemoveFiles buildFiles
 
   -- Do default clean procedure
   cleanHook simpleUserHooks pkgDesc mlbi userhooks flags
@@ -133,12 +140,20 @@ cleanOmega pkgDesc mlbi userhooks flags = do
       lenientRemoveFile f =
           removeFile f `catch` \_ -> return ()
 
-      -- Attempt to remove a directory, ignoring errors
-      lenientRemoveDirectory f =
-          removeDirectoryRecursive f `catch` \_ -> return ()
+      lenientRemoveFiles = mapM_ lenientRemoveFile
 
-      files = ["configure", "config.log", "config.status",
-               "Makefile", "build" </> "C_omega.o"]
+      -- Attempt to remove a directory and its contents
+      -- (one level of recursion only), ignoring errors
+      lenientRemoveDirectory f = do
+        b <- doesDirectoryExist f
+        when b $ do lenientRemoveFiles =<< getDirectoryContents f
+                    removeDirectory f `catch` \_ -> return ()
+
+      -- Extra files produced by configuration
+      configFiles = ["configure", "config.log", "config.status", "Makefile"]
+
+      -- Extra files produced by building
+      buildFiles = [cppObjectName]
 
 
 -------------------------------------------------------------------------------
