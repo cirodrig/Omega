@@ -92,7 +92,7 @@ buildOmega pkgDesc lbi userhooks flags = do
   (arPgm, _) <- requireProgram verb arProgram AnyVersion (withPrograms lbi)
 
   -- Build the C++ source file
-  rawSystemProgramConf verb makeProgram (withPrograms lbi) []
+  rawSystemProgramConf verb makeProgram (withPrograms lbi) ["all"]
 
   -- Add the object file to libraries
   let objName = "build" </> "C_omega.o"
@@ -115,6 +115,23 @@ buildOmega pkgDesc lbi userhooks flags = do
   return ()
 
 -------------------------------------------------------------------------------
+-- Cleaning
+
+cleanOmega pkgDesc mlbi userhooks flags = do
+  -- Do default clean procedure
+  cleanHook simpleUserHooks pkgDesc mlbi userhooks flags
+
+  let verb = fromFlagOrDefault Verbosity.normal $ cleanVerbosity flags
+
+  -- Clean other files
+  let files = ["configure", "config.log", "config.status",
+               "Makefile", "build" </> "C_omega.o"]
+  mapM_ safeRemoveFile files
+    where
+      -- Attempt to remove a file, ignoring errors
+      safeRemoveFile f = removeFile f `catch` (\_ -> return ())
+
+-------------------------------------------------------------------------------
 -- Hooks
 
 hooks =
@@ -122,6 +139,7 @@ hooks =
     { hookedPrograms = [arProgram, autoconfProgram, makeProgram]
     , confHook = configureOmega
     , buildHook = buildOmega
+    , cleanHook = cleanOmega
     }
 
 main = defaultMainWithHooks hooks
