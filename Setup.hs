@@ -125,12 +125,11 @@ buildOmega pkgDesc lbi userhooks flags = do
 cleanOmega pkgDesc mlbi userhooks flags = do
   let verb = fromFlagOrDefault Verbosity.normal $ cleanVerbosity flags
 
-  -- Clean extra files
+  -- Clean extra files if we don't need to save configuration
+  -- (Other temp files are automatically cleaned)
   unless (fromFlag $ cleanSaveConf flags) $ do
     lenientRemoveFiles configFiles
     lenientRemoveDirectory "autom4te.cache"
-
-  lenientRemoveFiles buildFiles
 
   -- Do default clean procedure
   cleanHook simpleUserHooks pkgDesc mlbi userhooks flags
@@ -151,9 +150,6 @@ cleanOmega pkgDesc mlbi userhooks flags = do
 
       -- Extra files produced by configuration
       configFiles = ["configure", "config.log", "config.status", "Makefile"]
-
-      -- Extra files produced by building
-      buildFiles = [cppObjectName]
 
 
 -------------------------------------------------------------------------------

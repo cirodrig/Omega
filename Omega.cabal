@@ -18,6 +18,7 @@ Description:
         http://github.com/davewathaverford/the-omega-project using git.
 Category:		Data
 Extra-Source-Files:	configure.ac Makefile.in src/C_omega.h src/C_omega.cc
+Extra-Tmp-Files:	build/C_omega.o
 
 Library
   Build-Depends:	base, parsec, pretty, containers
