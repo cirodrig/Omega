@@ -118,18 +118,28 @@ buildOmega pkgDesc lbi userhooks flags = do
 -- Cleaning
 
 cleanOmega pkgDesc mlbi userhooks flags = do
+  let verb = fromFlagOrDefault Verbosity.normal $ cleanVerbosity flags
+
+  -- Clean extra files
+  mapM_ lenientRemoveFile files
+
+  removeDirectoryRecursive "autom4te.cache"
+
   -- Do default clean procedure
   cleanHook simpleUserHooks pkgDesc mlbi userhooks flags
 
-  let verb = fromFlagOrDefault Verbosity.normal $ cleanVerbosity flags
-
-  -- Clean other files
-  let files = ["configure", "config.log", "config.status",
-               "Makefile", "build" </> "C_omega.o"]
-  mapM_ safeRemoveFile files
     where
       -- Attempt to remove a file, ignoring errors
-      safeRemoveFile f = removeFile f `catch` (\_ -> return ())
+      lenientRemoveFile f =
+          removeFile f `catch` \_ -> return ()
+
+      -- Attempt to remove a directory, ignoring errors
+      lenientRemoveDirectory f =
+          removeDirectoryRecursive f `catch` \_ -> return ()
+
+      files = ["configure", "config.log", "config.status",
+               "Makefile", "build" </> "C_omega.o"]
+
 
 -------------------------------------------------------------------------------
 -- Hooks
