@@ -1,0 +1,39 @@
+
+CXX=@CXX@
+
+CPPFLAGS=@CPPFLAGS@
+CXXFLAGS=@CXXFLAGS@
+LDFLAGS=@LDFLAGS@
+
+LIBS=@LIBS@
+
+INCLUDES=src/C_omega.h
+
+all : build/C_omega.o
+
+build :
+	mkdir $@
+
+build/C_omega.o : src/C_omega.cc build $(INCLUDES)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(INCLUDE) -c $< -o $@ 
+
+LowLevel.hs : LowLevel.hsc $(INCLUDES)
+	hsc2hs -o $@ $<
+
+LowLevel.o : LowLevel.hs $(INCLUDES)
+	ghc -c $< -o $@
+
+Expr.o : Expr.hs LowLevel.o
+	ghc -c $< -o $@
+
+testOmega.o : testOmega.hs Expr.o LowLevel.o $(INCLUDES)
+	ghc -c $< -o $@
+
+testOmega : testOmega.hs Parse.hs Expr.hs Set.hs LowLevel.hs HS_omega.o
+	ghc --make -o $@ testOmega.hs HS_omega.o \
+		-package mtl -package containers \
+		-L../omega_lib/obj -L/usr/lib/gcc/i486-linux-gnu/4.1.2 \
+		-lomega -lstdc++
+
+%.o : %.hs
+	ghc -c $< -o $@

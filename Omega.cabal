@@ -1,0 +1,20 @@
+Name:		Omega
+Version:	0.1.1
+Cabal-Version:	>= 1.2
+Build-Type:	Custom
+License:	BSD3
+Author:		Christopher Rodrigues
+Stability:	Alpha
+Synopsis:	Tools for manipulating Presburger arithmetic formulae.
+Category:	Data
+
+Library
+  Build-Depends:	base, parsec, pretty, containers
+  Exposed-Modules:	Data.Omega.Expr Data.Omega.Set Data.Omega.Rel Data.Omega.LowLevel Data.Omega.Parse
+  Extensions:		GADTs ScopedTypeVariables
+  Build-Tools:		hsc2hs
+  Include-Dirs:		src
+  Extra-Libraries:	omega stdc++
+
+  -- This is only for testing on my own system
+  Extra-Lib-Dirs:	/usr/lib/gcc/i486-linux-gnu/4.1.2
