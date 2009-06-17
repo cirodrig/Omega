@@ -1,8 +1,8 @@
 
-module Data.Omega.Set where
+module Data.Presburger.Omega.Set where
 
-import Data.Omega.Expr
-import qualified Data.Omega.LowLevel as L
+import Data.Presburger.Omega.Expr
+import qualified Data.Presburger.Omega.LowLevel as L
 
 -- Sets quantified over some variables.  The variables
 -- have de Bruijn indices.

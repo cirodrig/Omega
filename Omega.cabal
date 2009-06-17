@@ -10,7 +10,7 @@ Category:	Data
 
 Library
   Build-Depends:	base, parsec, pretty, containers
-  Exposed-Modules:	Data.Omega.Expr Data.Omega.Set Data.Omega.Rel Data.Omega.LowLevel Data.Omega.Parse
+  Exposed-Modules:	Data.Presburger.Omega Data.Presburger.Omega.Expr Data.Presburger.Omega.Set Data.Presburger.Omega.Rel Data.Presburger.Omega.LowLevel Data.Presburger.Omega.Parse
   Extensions:		GADTs ScopedTypeVariables
   Build-Tools:		hsc2hs
   Include-Dirs:		src

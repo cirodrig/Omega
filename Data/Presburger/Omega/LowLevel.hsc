@@ -4,10 +4,7 @@
                 -XFunctionalDependencies -XTypeSynonymInstances
                 -XFlexibleInstances -XFlexibleContexts #-}
 
-module Data.Omega.LowLevel
-#if 0
-where
-#else
+module Data.Presburger.Omega.LowLevel
     (Presburger,
      OmegaSet,
      OmegaRel,
@@ -562,5 +559,3 @@ queryDNFSet s = withPresburger s $ iterateDNF foo ()
         print coefficients
         print constant
         return ()
-
-#endif

@@ -1,5 +1,5 @@
 
-module Data.Omega.Parse
+module Data.Presburger.Omega.Parse
     (readBoolExp, readSet, readRelation, ParseError)
 where
 
@@ -11,9 +11,9 @@ import Data.Map(Map)
 import Text.ParserCombinators.Parsec hiding(digit)
 import Text.ParserCombinators.Parsec.Expr
 
-import Data.Omega.Expr
-import Data.Omega.Set
-import Data.Omega.Rel
+import Data.Presburger.Omega.Expr
+import Data.Presburger.Omega.Set
+import Data.Presburger.Omega.Rel
 
 type FreeVarID = Int
 type BoundVarID = Int

@@ -3,7 +3,7 @@
                 -XTypeFamilies
                 -XEmptyDataDecls
                 -XFlexibleInstances #-}
-module Data.Omega.Expr
+module Data.Presburger.Omega.Expr
     (ExpTuple(..),
      CAUOp(..),
      PredOp(..),
@@ -31,7 +31,7 @@ import qualified Data.Set as Set
 import Data.Set(Set)
 import Debug.Trace
 
-import Data.Omega.LowLevel
+import Data.Presburger.Omega.LowLevel
 
 -- The tuple type used by expressions is a newtype of a list type.
 

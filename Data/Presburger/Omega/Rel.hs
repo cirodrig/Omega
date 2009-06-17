@@ -1,8 +1,8 @@
 
-module Data.Omega.Rel where
+module Data.Presburger.Omega.Rel where
 
-import Data.Omega.Expr
-import qualified Data.Omega.LowLevel as L
+import Data.Presburger.Omega.Expr
+import qualified Data.Presburger.Omega.LowLevel as L
 
 -- Relations, which represent functions from tuples of integers to
 -- tuples of integers.
