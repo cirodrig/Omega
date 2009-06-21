@@ -1,41 +1,154 @@
 
-module Data.Presburger.Omega.Rel where
+module Data.Presburger.Omega.Rel
+    (Rel,
+     -- * Building relations
+     rel, functionalRel, fromOmegaRel,
+     -- * Operatoins on relations
+     inputDimension, outputDimension,
+     domain,
+     predicate
+    )
+where
+
+import System.IO.Unsafe
 
 import Data.Presburger.Omega.Expr
 import qualified Data.Presburger.Omega.LowLevel as L
+import Data.Presburger.Omega.LowLevel(OmegaRel)
+import Data.Presburger.Omega.SetRel
+import qualified Data.Presburger.Omega.Set as Set
 
--- | Relations, which represent partial functions from Z^m to Z^n.
--- The dimension m of the input is given by 'relDomain'.
--- The output is 'relOut'.
+-- | Partial functions from Z^m to Z^n.
 
--- Variables are referenced by de Bruijn index.
+-- Variables are referenced by de Bruijn index.  The order is:
+-- [dom_1, dom_2 ... dom_n, rng_1, rng_2 ... rng_m]
+-- where rng_1 has the lowest index and dom_m the highest.
 data Rel = Rel
-    { relDimension :: !Int      -- ^ number of variables in the input
-    , relOut       :: [Exp Int] -- ^ the function from input to output
-    , relDomain    :: Exp Bool  -- ^ domain on which the relation is defined
+    { relInpDim :: !Int         -- ^ number of variables in the input
+    , relOutDim :: !Int         -- ^ the function from input to output
+    , relFun    :: BoolExp      -- ^ function defining the relation
+    , relOmegaRel :: OmegaRel   -- ^ low-level representation of this relation
     }
     deriving(Show)
 
--- Convert a relation to an omega relation
-relToOmegaRel :: Rel -> IO L.OmegaRel
-relToOmegaRel r = L.newOmegaRel (relDimension r) rangeVars $ \dom rng ->
-    expToFormula (dom ++ rng) constraints
+-- | Create a new relation from Z^m to Z^n from a predicate that
+-- defines the relation.
+--
+-- The expression should have @m+n@ free variables.  The first @m@
+-- variables refer to the domain, and the remaining variables refer to
+-- the range.
+--
+-- Relations should be functional, that is, each element of the domain
+-- maps to at most one element of the range.  This property is not
+-- verified.
+
+rel :: Int                      -- ^ Dimensionality of the domain
+    -> Int                      -- ^ Dimensionality of the range
+    -> BoolExp                  -- ^ Predicate defining the relation
+    -> Rel
+rel inDim outDim expr
+    | variablesWithinRange (inDim + outDim) expr =
+        Rel
+        { relInpDim   = inDim
+        , relOutDim   = outDim
+        , relFun      = expr
+        , relOmegaRel = unsafePerformIO $ mkOmegaRel inDim outDim expr
+        }
+    | otherwise = error "rel: Variables out of range"
+
+mkOmegaRel inDim outDim expr =
+    L.newOmegaRel inDim outDim $ \dom rng -> expToFormula (dom ++ rng) expr
+
+-- | Create a new relation from Z^m to Z^n from functions defining
+-- each output in terms of the inputs.
+--
+-- The expression parameters should have @m@ free variables.
+--
+-- For example, the relation @{(x, y) -> (y, x) | x > 0 && y > 0}@ is
+--
+-- > let [x, y] = takeFreeVariables' 2
+-- > in rel 2 [y, x] (conj [y |>| 0, x |>| 0])
+
+functionalRel :: Int            -- ^ Dimensionality of the domain
+              -> [IntExp]       -- ^ Function relating domain to range
+              -> BoolExp        -- ^ Predicate restricting the domain
+              -> Rel
+functionalRel dim range domain
+    | all (variablesWithinRange dim) range &&
+      variablesWithinRange dim domain =
+        Rel
+        { relInpDim   = dim
+        , relOutDim   = length range
+        , relFun      = relationPredicate
+        , relOmegaRel = unsafePerformIO $
+                        mkFunctionalOmegaRel dim range domain
+        }
+    | otherwise = error "functionalRel: Variables out of range"
     where
-      -- The relation is a function from input variables to a tuple of
-      -- integers.  In the low-level interface a relation is just a kind of
-      -- set.  We have to convert a tuple [e1, e2, e3] into
-      -- some variabls x, y, z and constraints (x = e1 && y = e2 && z = e3).
-      rangeExps = relOut r
-      rangeVars = length rangeExps
-      rangeIndices =
-          let base = relDimension r
-          in  [base + rangeVars, base + rangeVars - 1, base + 1]
+      -- construct the expression domain && rangeVar1 == rangeExp1 && ...
+      relationPredicate =
+          conjE (domain : zipWith outputPredicate [dim..] range)
 
-      rangeConstraints = zipWith mkRangeConstraint rangeIndices rangeExps
+      outputPredicate index expr =
+          varE (nthVariable index) |==| expr
 
-      mkRangeConstraint n e =
-          let rangeVar = Bound n
-              term = simplify $ CAUE Sum 0 [e, CAUE Prod (-1) [VarE rangeVar]]
-          in PredE IsZero term
+-- To make an omega relation, we combine the range variables and the domain
+-- into one big happy formula, with the conjunction
+-- @domain /\ rangeVar1 == rangeExp1 /\ ... /\ rangeVarN == rangeExpN@.
 
-      constraints = CAUE Conj True (relDomain r : rangeConstraints)
+mkFunctionalOmegaRel :: Int -> [IntExp] -> BoolExp -> IO OmegaRel
+mkFunctionalOmegaRel dim range domain =
+    L.newOmegaRel dim (length range) $ \dom rng ->
+        L.conjunction (domainConstraint dom : rangeConstraints dom rng)
+    where
+      domainConstraint dom = expToFormula dom domain
+
+      rangeConstraints dom rng = zipWith (rangeConstraint dom) range rng
+
+      -- To make a range constraint, we first add the range variable
+      -- as the outermost bound variable, then convert this expression to an
+      -- equality constraint (rangeVar == ...), then convert 
+      rangeConstraint dom expr rngVar =
+          let -- Add the range variable as the outermost bound variable
+              vars = dom ++ [rngVar]
+
+              -- Turn the range formula into an equality constraint
+              -- (rngVar == ...)
+              expr' = expr |==| varE (nthVariable dim)
+
+          in expToFormula vars expr'
+
+-- | Convert an 'OmegaRel' to a 'Rel'.
+fromOmegaRel :: OmegaRel -> IO Rel
+fromOmegaRel orel = do
+  (dim, range, expr) <- relToExpression orel
+  return $ Rel
+             { relInpDim   = dim
+             , relOutDim   = range
+             , relFun      = expr
+             , relOmegaRel = orel
+             }
+
+-------------------------------------------------------------------------------
+-- Operations on relations
+
+-- Some helper functions
+useRel :: (OmegaRel -> IO a) -> Rel -> a
+useRel f r = unsafePerformIO $ f $ relOmegaRel r
+
+-- | Get the dimensionality of a relation's domain
+inputDimension :: Rel -> Int
+inputDimension = relInpDim
+
+-- | Get the dimensionality of a relation's range
+outputDimension :: Rel -> Int
+outputDimension = relOutDim
+
+-- | Get the predicate defining a relation.
+predicate :: Rel -> BoolExp
+predicate = relFun
+
+-- | Get the predicate defining a relation's domain
+domain :: Rel -> Set.Set
+domain r = useRel (\ptr -> Set.fromOmegaSet =<< L.domain ptr) r
+

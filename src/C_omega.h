@@ -21,6 +21,9 @@ struct Relation *new_relation(int n_input, int n_output);
 struct Relation *new_set(int n);
 void free_relation(struct Relation *rel);
 char *relation_show(struct Relation *rel);
+int num_input_vars(struct Relation *rel);
+int num_output_vars(struct Relation *rel);
+int num_set_vars(struct Relation *rel);
 struct Var_Decl *input_var(struct Relation *rel, int n);
 struct Var_Decl *output_var(struct Relation *rel, int n);
 struct Var_Decl *set_var(struct Relation *rel, int n);
@@ -31,6 +34,9 @@ int is_definite_tautology(struct Relation *rel);
 int is_exact(struct Relation *rel);
 int is_inexact(struct Relation *rel);
 int is_unknown(struct Relation *rel);
+struct Relation *relation_union(struct Relation *, struct Relation *);
+struct Relation *relation_intersection(struct Relation *, struct Relation *);
+struct Relation *relation_domain(struct Relation *);
 
 struct F_And *relation_add_and(struct Relation *rel);
 struct Formula *relation_add_or(struct Relation *rel);
@@ -56,6 +62,8 @@ void add_constraint(struct F_And *formula,
 		    int *coefficients,
 		    struct Var_Decl **vars,
 		    int constant);
+
+void separate_relation_dimensions(struct Relation **rel_out, struct Relation *rel);
 
 struct DNF_Iterator *query_dnf(struct Relation *rel);
 struct Conjunct *dnf_iterator_next(struct DNF_Iterator *iter);
@@ -86,6 +94,7 @@ void constr_vars_free(struct Constr_Vars_Iter *iter);
 
 void debug_print_eq(struct EQ_Handle *hdl);
 void debug_print_geq(struct GEQ_Handle *hdl);
+
 
 #ifdef __cplusplus
 }

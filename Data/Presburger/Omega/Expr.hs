@@ -1,24 +1,52 @@
 
+-- | Expressions are the high-level interface to the Omega library.
+-- Expressions can be built in a freeform manner; they will be simplified
+-- to a form that the underlying library can use.
+-- 
+-- This module handles expressions and converts them to formulas.  Other
+-- modules build sets and relations.
+
+
 {-# OPTIONS_GHC -fwarn-incomplete-patterns
+                -XBangPatterns
                 -XTypeFamilies
                 -XEmptyDataDecls
                 -XFlexibleInstances
                 -XFlexibleContexts #-}
 module Data.Presburger.Omega.Expr
-    (CAUOp(..),
-     PredOp(..),
-     Quantifier(..),
-     Var(..),
-     Exp(..),
-     Term,
-     deconstructSum, rebuildSum,
-     deconstructProduct, rebuildProduct,
-     zero, unit, isZeroOf, isUnitOf,
+    (-- * Expressions
+
+     Exp(..), IntExp, BoolExp,
+     Var,
+
+     -- ** Constructing expressions
+     nthVariable, takeFreeVariables, takeFreeVariables',
+     varE, intE, boolE, trueE, falseE, negateE,
+     sumE, prodE, conjE, disjE,
+     isZeroE, isNonnegativeE,
+     (|+|), (|-|),
+     (|==|), (|/=|), (|>|), (|>=|), (|<|), (|<=|),
+     forallE, existsE,
+
+     -- ** Manipulating expressions
      expEqual,
      simplify,
      expToFormula,
+
+     -- ** Manipulating variables within expressions
      rename,
-     bindVariables
+     adjustBindings,
+     variablesWithinRange,
+
+     -- * Other utilities
+     CAUOp(..),
+     PredOp(..),
+     Quantifier(..),
+     zero, unit, isZeroOf, isUnitOf,
+
+     Term,
+     deconstructSum, rebuildSum,
+     deconstructProduct, rebuildProduct
     )
 where
 
@@ -29,9 +57,62 @@ import qualified Data.IntMap as IntMap
 import Data.IntMap(IntMap)
 import qualified Data.Set as Set
 import Data.Set(Set)
+import Data.Unique
 import Debug.Trace
+import System.IO.Unsafe
 
 import Data.Presburger.Omega.LowLevel
+
+infixl 6 |+|, |-|
+infix 4 |>|, |>=|, |<|, |<=|, |==|, |/=|
+
+-- | Integer and boolean-valued expressions.
+data Exp t where
+    -- Application of a commutative and associative operator
+    CAUE :: !(CAUOp t)          -- operator
+         -> !t                  -- literal operand
+         -> [Exp t]             -- other operands
+         -> Exp t
+
+    -- A predicate on an integer expression
+    PredE :: !PredOp            -- operator
+          -> Exp Int            -- integer operand
+          -> Exp Bool
+
+    -- Boolean negation
+    NotE :: Exp Bool -> Exp Bool
+
+    -- A literal
+    LitE :: !t -> Exp t
+
+    -- A variable.  Only integer-valued variables are permitted.
+    VarE :: !Var -> Exp Int
+
+    -- An expression quantified over an integer variable
+    QuantE :: !Quantifier -> Exp t -> Exp t
+
+type IntExp = Exp Int
+type BoolExp = Exp Bool
+
+-- | Variables.  Variables are represented internally by de Bruijn indices.
+
+-- Variables are represented by a de Bruijn index.  The "innermost" variable
+-- is zero, and outer variables have higher indices.
+
+-- The 'Quantified' constructor is used temporarily when building a quantified
+-- expression.  It is only seen by 'rename' and 'adjustBindings'.
+data Var = Bound {-# UNPACK #-} !Int
+         | Quantified !Unique
+           deriving(Eq, Ord)
+
+-- | Produce the Nth bound variable.  Zero is the innermost variable index.
+nthVariable :: Int -> Var
+nthVariable = Bound
+
+-- | Construct a new quantified variable.
+newQuantified :: IO Var
+newQuantified = do u <- newUnique
+                   return (Quantified u)
 
 -- | A commutative and associative operator with a unit.
 -- The type parameter 't' gives the operator's parameter and return type.
@@ -54,7 +135,7 @@ instance Show (CAUOp t) where
     show Conj = "Conj"
     show Disj = "Disj"
 
--- | Predicate operators on integer terms.
+-- | A predicate on an integer expresion.
 data PredOp = IsZero | IsGEZ
               deriving(Eq, Show)
 
@@ -62,40 +143,115 @@ data PredOp = IsZero | IsGEZ
 data Quantifier = Forall | Exists
                   deriving(Eq, Show)
 
--- Variables.  Bound variables are denoted by a de Bruijn index.
-data Var = Bound {-# UNPACK #-} !Int | Free {-# UNPACK #-} !Int
-           deriving(Eq, Ord)
+freeVariables :: [Var]
+freeVariables = map Bound [0..]
 
--- Expressions
-data Exp t where
-    -- A commutative and associative expression
-    CAUE :: !(CAUOp t)          -- operator
-         -> !t                  -- literal operand
-         -> [Exp t]             -- other operands
-         -> Exp t
+-- | Produce a set of variables to use as "free variables" in an expression.
+-- This produces the list @[nthVariable 0, nthVariable 1, ...]@
+takeFreeVariables :: Int -> [Var]
+takeFreeVariables n = take n freeVariables
 
-    -- A predicate on an integer term
-    PredE :: !PredOp            -- operator
-          -> Exp Int            -- integer operand
-          -> Exp Bool
+-- | A convenience function that turns each variable in 'takeFreeVariables'
+-- into an expression.
+takeFreeVariables' :: Int -> [IntExp]
+takeFreeVariables' n = map varE $ take n freeVariables
 
-    -- Boolean negation
-    NotE :: Exp Bool -> Exp Bool
+varE :: Var -> IntExp
+varE = VarE
 
-    -- A literal
-    LitE :: !t -> Exp t
+intE :: Int -> IntExp
+intE = LitE
 
-    -- A variable
-    VarE :: !Var -> Exp t
+boolE :: Bool -> BoolExp
+boolE = LitE
 
-    -- An expression quantified over an integer variable
-    QuantE :: !Quantifier -> Exp t -> Exp t
+trueE, falseE :: BoolExp
+trueE = boolE True
+falseE = boolE False
+
+negateE :: IntExp -> IntExp
+negateE e = CAUE Prod (-1) [e]
+
+-- | Sum of integer expressions
+sumE :: [IntExp] -> IntExp
+sumE = CAUE Sum 0
+
+-- | Product of integer expressions
+prodE :: [IntExp] -> IntExp
+prodE = CAUE Prod 1
+
+-- | Conjunction of boolean expressions
+conjE :: [BoolExp] -> BoolExp
+conjE = CAUE Conj True
+
+-- | Disjunction of boolean expressions
+disjE :: [BoolExp] -> BoolExp
+disjE = CAUE Disj False
+
+-- | Test whether an integer expression is zero
+isZeroE :: IntExp -> BoolExp
+isZeroE = PredE IsZero
+
+-- | Test whether an integer expression is nonnegative
+isNonnegativeE :: IntExp -> BoolExp
+isNonnegativeE = PredE IsGEZ 
+
+-- | Add
+(|+|) :: IntExp -> IntExp -> IntExp
+e |+| f = sumE [e,f]
+
+-- | Subtract
+(|-|) :: IntExp -> IntExp -> IntExp
+e |-| f = sumE [e, negateE f]
+
+-- | Equality test
+(|==|) :: IntExp -> IntExp -> BoolExp
+e |==| f = isZeroE (e |-| f)
+
+-- | Inequality test
+(|/=|) :: IntExp -> IntExp -> BoolExp
+e |/=| f = disjE [e |>| f, e |<| f]
+
+-- | Greater than
+(|>|) :: IntExp -> IntExp -> BoolExp
+e |>| f = isNonnegativeE (CAUE Sum (-1) [e, negateE f])
+
+-- | Less than
+(|<|) :: IntExp -> IntExp -> BoolExp
+e |<| f = f |>| e
+
+-- | Greater than or equal
+(|>=|) :: IntExp -> IntExp -> BoolExp
+e |>=| f = isNonnegativeE (e |-| f)
+
+-- | Less than or equal
+(|<=|) :: IntExp -> IntExp -> BoolExp
+e |<=| f = f |>=| e
+
+-- | Build a universally quantified formula.
+forallE :: (Var -> Exp t) -> Exp t
+forallE f = QuantE Forall $ withFreshVariable f
+
+-- | Build an existentially quantified formula.
+existsE :: (Var -> Exp t) -> Exp t
+existsE f = QuantE Exists $ withFreshVariable f
+
+-- | Use a fresh variable in an expression.  After the expression is
+-- constructed, rename/adjust variable indices so that the fresh variable
+-- has index 0 and all other free variables' indices are incremented
+-- by 1.
+withFreshVariable :: (Var -> Exp t) -> Exp t
+withFreshVariable f = unsafePerformIO $ do
+  v <- newQuantified
+  return $ rename v (Bound 0) $ adjustBindings 0 1 $ f v
+
+-------------------------------------------------------------------------------
 
 isLitE :: Exp t -> Bool
 isLitE (LitE _) = True
 isLitE _        = False
 
-deconstructProduct :: Exp Int -> Term Int
+deconstructProduct :: IntExp -> Term Int
 deconstructProduct (CAUE Prod n xs) = (n, xs)
 deconstructProduct e                = (unit Prod, [e])
 
@@ -180,7 +336,6 @@ instance Show (Exp Bool) where
     showsPrec _ (PredE op e) = showSExpr [shows op, shows e]
     showsPrec _ (NotE e)     = showSExpr [showString "Not", shows e]
     showsPrec _ (LitE l)     = shows l
-    showsPrec _ (VarE v)     = showVar v
     showsPrec _ (QuantE q e) = showQuant q e
     showsPrec _ _            = error "instance Show Exp: unreachable case"
 
@@ -208,8 +363,8 @@ showQuant q e = showSExpr [ showString (show q) . showChar '.'
                           , shows e
                           ]
 
-showVar (Bound n) = showString ("#" ++ show n)
-showVar (Free n)  = showString ("x" ++ show n)
+showVar (Bound n)      = showString ("Bound " ++ show n)
+showVar (Quantified n) = showString "Quantified"
 
 -- Show a literal but be a litle bit more compact if the literal is redundant.
 -- If the literal is the unit for the given CA operator, return Nothing.
@@ -420,17 +575,24 @@ collect e = e                   -- Terms other than sums do not change
 -------------------------------------------------------------------------------
 -- Converting expressions to formulas
 
--- Look up a variable based on its de Bruijn index.
-lookupVar :: Int -> [VarHandle] -> VarHandle
-lookupVar 1 (v : vars) = v
-lookupVar n (v : vars) | n > 0 = lookupVar (n - 1) vars
-                       | otherwise = error "lookupVar: index must be greater \
-                                           \than zero"
-lookupVar _ []         = error "lookupVar: variable index out of range"
+-- | Look up a variable in a list.  The variable's position is its
+-- de Bruijn index.
 
--- Convert a boolean expression to a formula.  The list of free variables is
--- passed as a parameter.
-expToFormula :: [VarHandle] -> Exp Bool -> Formula
+lookupVar :: Int -> [VarHandle] -> VarHandle
+lookupVar n (v : vars) | n > 0  = lookupVar (n - 1) vars
+                       | n == 0 = v
+                       | otherwise = error "lookupVar: negative index"
+
+lookupVar _ [] = error "lookupVar: variable index out of range"
+
+-- | Convert a simplified boolean expression to a formula.
+-- This function is only designed to handle expressions that were
+-- simplified by 'simplify'.  Other expressions may cause this function
+-- to throw an error.
+
+expToFormula :: [VarHandle]     -- ^ Free variables
+             -> BoolExp         -- ^ Expression to convert
+             -> Formula
 expToFormula freeVars expr =
     case expr
     of CAUE op lit es
@@ -457,9 +619,6 @@ expToFormula freeVars expr =
        LitE True  -> true
        LitE False -> false
 
-       VarE _ -> error "expToFormula: boolean variables cannot be \
-                       \converted to a formula"
-
        QuantE q e -> let body v = expToFormula (v:freeVars) e
                      in case q
                         of Forall -> qForall body
@@ -467,16 +626,17 @@ expToFormula freeVars expr =
 
        _ -> error "expToFormula: unexpected expression"
 
-sumToConstraint :: [VarHandle] -> Exp Int -> ([Coefficient], Int)
+-- | Convert an integer term to a formula.
+
+sumToConstraint :: [VarHandle] -> IntExp -> ([Coefficient], Int)
 sumToConstraint freeVars expr =
     case deconstructSum expr
     of (constant, terms) -> (map deconstructTerm terms, constant)
     where
+      deconstructTerm :: IntExp -> Coefficient
       deconstructTerm expr =
           case deconstructProduct expr
-          of (n, [VarE (Bound i)]) -> coefficient n $ lookupVar i freeVars
-             (_, [VarE (Free _)]) -> error "sumToConstraint: cannot use \
-                                           \free variable in constraint"
+          of (n, [VarE (Bound i)]) -> Coefficient (lookupVar i freeVars) n
              _ -> error "sumToConstraint: cannot convert non-affine \
                         \expression to constraint"
 
@@ -494,47 +654,41 @@ rename v1 v2 expr = rn expr
       rn (QuantE q e)     = QuantE q $ rename (bumpIndex v1) (bumpIndex v2) e
 
       -- Increment a de Bruijn index
-      bumpIndex (Bound n)  = Bound (n+1)
-      bumpIndex v@(Free _) = v
+      bumpIndex (Bound n)        = Bound (n+1)
+      bumpIndex v@(Quantified _) = v
 
--- Convert some free variables to bound variables.  De Bruijn indices are
--- adjusted assuming the binder is added outside all existing binders.
---
--- The parameter is the list of free variables, starting with the outermost.
-bindVariables :: [Int] -> Exp t -> Exp t
-bindVariables fvs expr = bind expr
-    where
-      fvmap   = IntMap.fromList $ zip fvs [1..]
-      fvLen   = length fvs
-      shift n = n + fvLen
-
-      bind :: forall t. Exp t -> Exp t
-      bind (CAUE op lit es) = CAUE op lit $ map bind es
-      bind (PredE op e)     = PredE op $ bind e
-      bind (NotE e)         = NotE $ bind e
-      bind expr@(LitE _)    = expr
-      bind expr@(VarE v)    = case v
-                              of Free n -> case IntMap.lookup n fvmap
-                                           of Just n' -> VarE (Bound n')
-                                              Nothing -> expr
-                                 Bound n -> VarE $ Bound (shift n)
-      bind (QuantE q e)     = QuantE q $ bind e
-
--- Adjust bound variable bindings by adding 'shift' to all bound variable
--- indices greater than or equal to 'offset'.
-adjustBindings :: Int -> Int -> Exp t -> Exp t
-adjustBindings offset shift e = adj e
+-- | Adjust bound variable bindings by adding 'shift' to all bound variable
+-- indices greater than or equal to 'first'.
+adjustBindings :: Int           -- ^ first variable to change
+               -> Int           -- ^ Amount to shift by
+               -> Exp t         -- ^ Input expression
+               -> Exp t         -- ^ Adjusted expression
+adjustBindings !firstBound !shift e = adj e
     where
       adj :: Exp t -> Exp t
-      adj (CAUE op lit es) = CAUE op lit $ map adj es
-      adj (PredE op e)     = PredE op $ adj e
-      adj (NotE e)         = NotE $ adj e
+      adj (CAUE op lit es) = CAUE op lit (map adj es)
+      adj (PredE op e)     = PredE op (adj e)
+      adj (NotE e)         = NotE (adj e)
       adj expr@(LitE _)    = expr
       adj expr@(VarE v)    = case v
-                             of Free n -> expr
-                                Bound n | n >= offset
-                                            -> VarE $ Bound (n + shift)
-                                        | otherwise
-                                            -> expr
-      adj (QuantE q e)     = QuantE q $ adjustBindings (offset + 1) shift e
+                             of Bound n
+                                    | n >= firstBound ->
+                                        VarE $ Bound (n + shift)
+                                    | otherwise ->
+                                        expr
+                                Quantified _ -> expr
+      adj (QuantE q e)     = QuantE q $ adjustBindings (firstBound + 1) shift e
 
+-- | Check whether the expression has no more than the specified number
+-- of free variables.
+variablesWithinRange :: Int -> Exp t -> Bool
+variablesWithinRange n e = check e
+    where
+      check :: Exp t -> Bool
+      check (CAUE _ _ es)         = all check es
+      check (PredE _ e)           = check e
+      check (NotE e)              = check e
+      check (LitE _)              = True
+      check (VarE (Bound i))      = i < n
+      check (VarE (Quantified _)) = error "Unexpected quantified variable"
+      check (QuantE _ e)          = variablesWithinRange (n+1) e

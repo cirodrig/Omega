@@ -12,8 +12,8 @@ import Text.ParserCombinators.Parsec hiding(digit)
 import Text.ParserCombinators.Parsec.Expr
 
 import Data.Presburger.Omega.Expr
-import Data.Presburger.Omega.Set
-import Data.Presburger.Omega.Rel
+import qualified Data.Presburger.Omega.Set as Set
+import qualified Data.Presburger.Omega.Rel as Rel
 
 type FreeVarID = Int
 type BoundVarID = Int
@@ -47,14 +47,7 @@ lookupName name = do
       -- First look in bound variables.  These are allowed to shadow free ones.
       lookupBoundVariable s =
           case findIndex nameMatches $ boundVars s of
-            Just n -> return (Bound $ n+1) -- findIndex counts from zero;
-                                           -- increment because we count from
-                                           -- one
-            Nothing -> lookupFreeVariable s
-
-      lookupFreeVariable s =
-          case Map.lookup name $ freeVars s of
-            Just v  -> return (Free v)
+            Just n -> return (nthVariable n)
             Nothing -> invalidName
 
       invalidName = fail $ "Undefined variable '" ++ name ++ "'"
@@ -231,7 +224,7 @@ boolExp = buildExpressionParser boolOperators boolTerm
           , [infixop "||" (ca Disj) AssocLeft]
           ]
 
-set :: ExpParser Set
+set :: ExpParser Set.Set
 set = braces $ do
   -- The set starts with a tuple that
   -- binds some forall'd variables
@@ -244,9 +237,9 @@ set = braces $ do
   -- Unbind the variables
   sequence_ $ replicate numVars unbind
 
-  return $ Set numVars f
+  return $ Set.set numVars f
 
-relation :: ExpParser Rel
+relation :: ExpParser Rel.Rel
 relation = braces $ do
   -- The set starts with a tuple that
   -- binds some forall'd variables
@@ -267,16 +260,16 @@ relation = braces $ do
   sequence_ $ replicate numVars unbind
 
   -- Return the relation
-  return $ Rel numVars outExps f
+  return $ Rel.rel numVars outExps f
 
 readBoolExp :: String -> Either ParseError (Exp Bool)
 readBoolExp input =
     runParser (eof `after` boolExp) initialParserState "<input>" input
 
-readSet :: String -> Either ParseError Set
+readSet :: String -> Either ParseError Set.Set
 readSet input =
     runParser (eof `after` set) initialParserState "<input>" input
 
-readRelation :: String -> Either ParseError Rel
+readRelation :: String -> Either ParseError Rel.Rel
 readRelation input =
     runParser (eof `after` relation) initialParserState "<input>" input

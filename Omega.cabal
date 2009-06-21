@@ -15,7 +15,7 @@ Description:
 
         The Omega library must be installed to build this package.  It can
         be downloaded from
-        http://github.com/davewathaverford/the-omega-project using git.
+        @http://github.com/davewathaverford/the-omega-project@ using git.
 Category:		Data
 Extra-Source-Files:	configure.ac Makefile.in src/C_omega.h src/C_omega.cc
 Extra-Tmp-Files:	build/C_omega.o
@@ -25,10 +25,10 @@ Library
   Exposed-Modules:
         Data.Presburger.Omega
         Data.Presburger.Omega.Expr
+        Data.Presburger.Omega.SetRel
         Data.Presburger.Omega.Set
         Data.Presburger.Omega.Rel
         Data.Presburger.Omega.LowLevel
-        Data.Presburger.Omega.Parse
   Extensions:		GADTs ScopedTypeVariables
   Build-Tools:		hsc2hs
   Include-Dirs:		src

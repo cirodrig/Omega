@@ -29,6 +29,24 @@ char *relation_show(Relation *rel)
 }
 
 extern "C"
+int num_input_vars(Relation *rel)
+{
+  return rel->n_inp();
+}
+
+extern "C"
+int num_output_vars(Relation *rel)
+{
+  return rel->n_out();
+}
+
+extern "C"
+int num_set_vars(Relation *rel)
+{
+  return rel->n_set();
+}
+
+extern "C"
 Var_Decl *input_var(Relation *rel, int n)
 {
   return rel->input_var(n);
@@ -85,6 +103,25 @@ int is_unknown(Relation *rel)
 {
   return rel->is_unknown();
 }
+
+extern "C"
+Relation *relation_union(Relation *r, Relation *s)
+{
+  return new Relation(Union(copy(*r), copy(*s)));
+}
+
+extern "C"
+Relation *relation_intersection(Relation *r, Relation *s)
+{
+  return new Relation(Intersection(copy(*r), copy(*s)));
+}
+
+extern "C"
+Relation *relation_domain(Relation *rel)
+{
+  return new Relation(Domain(copy(*rel)));
+}
+
 
 extern "C"
 F_And *relation_add_and(Relation *rel)
@@ -205,7 +242,54 @@ void add_constraint(F_And *formula,
   free(hdl);
 }
 
-/* Testing... */
+/* Helper for the following routine */
+static void
+write_dimension_to_output(Relation **out, Relation &rel)
+{
+    /* Approximate so that existential vars are eliminated */
+    Approximate(rel);
+
+    /* Save into the output */
+    *out = new Relation(copy(rel));
+    (*out)->finalize();
+}
+
+/* For each output variable in rel, produce a relation whose constraints
+ * mention only that output variable and input variables.
+ */
+extern "C"
+void
+separate_relation_dimensions(Relation **rel_out, Relation *rel)
+{
+  int n_outputs = rel->n_out();
+
+  /* We keep a copy of rel in which the first few output variables are
+   * projected out.  In iteration i, variables 0 .. i-1 are projected out
+   * and variables i .. n_outputs-1 are still in effect.
+   */
+  Relation projected = copy(*rel);
+
+  /* For all but the last output variable */
+  for (int i = 0; i < n_outputs-1; i++) {
+    /* Make a copy of 'projected' which wil be the output relation */
+    Relation rel_i = copy(projected);
+
+    /* Project out all variables i+1 .. n_outputs-1 */
+    for (int j = i + 1; j < n_outputs - 1; j++)
+      Project (rel_i, j+1, Output_Var);
+
+    write_dimension_to_output(&rel_out[i], rel_i);
+
+    /* Project another variable */
+    Project(projected, i+1, Output_Var);
+  }
+
+  /* Last output */
+  write_dimension_to_output(&rel_out[n_outputs-1], projected);
+} 
+
+/* These are all for inspecting a DNF formula */
+
 extern "C"
 DNF_Iterator *query_dnf(Relation *rel)
 {
@@ -362,6 +446,8 @@ constr_vars_free(Constr_Vars_Iter *iter)
   delete iter;
 }
 
+/* For debugging */
+
 extern "C"
 void
 debug_print_eq(struct EQ_Handle *hdl)
@@ -389,56 +475,3 @@ find_variable_index(Var_Decl *v, int num_vars, Var_Decl **vars)
   }
   return -1;
 }
-
-#if 0
-{
-  DNF *dnf;
-
-  printf("Here\n");
-
-  dnf = rel->query_DNF();
-
-  /* For each conjunct in the DNF */
-  for(DNF_Iterator di(dnf); di; di++) {
-    Conjunct *conj = *di;
-
-    /* TODO:
-     * Count the number of input, output, wildcard variables.
-     *   Report the three kinds of variables to the Haskell runtime.
-     * Iterate through EQ conjuncts and do something with each term.
-     * Iterate through GEQ conjuncts and do something with each term.
-     */
-    
-    for (Tuple_Iterator<Variable_ID> ti = *conj->variables(); ti; ti++) {
-      Variable_ID var = *ti;
-      Var_Kind k = var->kind();
-
-      switch(var->kind()) {
-      case Input_Var:
-	{
-	  int index = find_variable_index(var, num_set_vars, set_vars);
-
-	  if (index == -1) {
-	    /* Unknown input variable! */
-	    return 0;
-	  }
-	  printf("Input: %d\n", index);
-	  break;
-	}
-      case Wildcard_Var:
-	{
-	  printf("Wildcard %p\n", var);
-	  break;
-	}
-      default:
-	{
-	  printf("Unexpected variable\n");
-	}
-      }
-
-    }
-  }
-
-  return 1;
-}
-#endif
