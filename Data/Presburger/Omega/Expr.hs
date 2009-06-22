@@ -30,7 +30,7 @@ module Data.Presburger.Omega.Expr
 
      -- ** Construction
      nthVariable, takeFreeVariables, takeFreeVariables',
-     varE, intE, boolE, trueE, falseE, negateE,
+     varE, nthVarE, intE, boolE, trueE, falseE, negateE,
      sumE, prodE, notE, conjE, disjE,
      sumOfProductsE,
      isZeroE, isNonnegativeE,
@@ -172,6 +172,9 @@ takeFreeVariables' n = map varE $ take n freeVariables
 
 varE :: Var -> IntExp
 varE v = wrapExpr $ VarE v
+
+nthVarE :: Int -> IntExp
+nthVarE n = varE (nthVariable n)
 
 intE :: Int -> IntExp
 intE n = wrapExpr $ LitE n
@@ -489,7 +492,7 @@ showsVarPrec env prec (Bound i) =
       -- bindings, basically undoing the shift that 'withFreshVariable'
       -- applies.
       shift n = showParen (prec >= appPrec) $
-                    ("varE (nthVariable " ++) . shows (i-n) . (')':)
+                    showString "nthVarE " . shows (i-n)
 
 -- Unique is not showable, but users shouldn't see quantified variables anyway
 showsVarPrec _ _ (Quantified u) = showString "(Quantified _)"

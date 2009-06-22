@@ -30,6 +30,7 @@ module Data.Presburger.Omega.LowLevel
 
      -- * Creating new sets and relations from old ones
      union, intersection, composition,
+     restrictDomain, restrictRange,
      domain, range,
 
      -- * Constructing formulas
@@ -193,6 +194,10 @@ foreign import ccall safe relation_union
 foreign import ccall safe relation_intersection
     :: C_Relation -> C_Relation -> IO C_Relation
 foreign import ccall safe relation_composition
+    :: C_Relation -> C_Relation -> IO C_Relation
+foreign import ccall safe relation_restrict_domain
+    :: C_Relation -> C_Relation -> IO C_Relation
+foreign import ccall safe relation_restrict_range
     :: C_Relation -> C_Relation -> IO C_Relation
 foreign import ccall safe relation_domain
     :: C_Relation -> IO C_Relation
@@ -432,8 +437,8 @@ withPresburger :: Presburger a => a -> (C_Relation -> IO b) -> IO b
 withPresburger p = withForeignPtr (pPtr p)
 
 -- Use two wrapped relations or sets
-withPresburger2 :: Presburger a =>
-                   a -> a -> (C_Relation -> C_Relation -> IO b) -> IO b
+withPresburger2 :: (Presburger a, Presburger b) =>
+                   a -> b -> (C_Relation -> C_Relation -> IO c) -> IO c
 withPresburger2 p q f = withForeignPtr (pPtr p) $ \ptr ->
                         withForeignPtr (pPtr q) $ \ptr2 ->
                         f ptr ptr2
@@ -735,6 +740,18 @@ composition rel1 rel2
     | length (rDom rel1) == length (rRng rel2) =
           fromPtr =<< withPresburger2 rel1 rel2 relation_composition
     | otherwise = error "composition: argument arities do not agree"
+
+restrictDomain :: OmegaRel -> OmegaSet -> IO OmegaRel
+restrictDomain rel1 set
+    | length (rDom rel1) == length (sDom set) =
+          fromPtr =<< withPresburger2 rel1 set relation_restrict_domain
+    | otherwise = error "restrictDomain: argument arities do not agree"
+
+restrictRange :: OmegaRel -> OmegaSet -> IO OmegaRel
+restrictRange rel1 set
+    | length (rDom rel1) == length (sDom set) =
+          fromPtr =<< withPresburger2 rel1 set relation_restrict_range
+    | otherwise = error "restrictDomain: argument arities do not agree"
 
 -- | Get the domain of a relation.
 domain :: OmegaRel -> IO OmegaSet

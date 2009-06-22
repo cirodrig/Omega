@@ -123,6 +123,18 @@ Relation *relation_composition(Relation *r, Relation *s)
 }
 
 extern "C"
+Relation *relation_restrict_domain(Relation *r, Relation *s)
+{
+  return new Relation(Restrict_Domain(copy(*r), copy(*s)));
+}
+
+extern "C"
+Relation *relation_restrict_range(Relation *r, Relation *s)
+{
+  return new Relation(Restrict_Range(copy(*r), copy(*s)));
+}
+
+extern "C"
 Relation *relation_domain(Relation *rel)
 {
   return new Relation(Domain(copy(*rel)));

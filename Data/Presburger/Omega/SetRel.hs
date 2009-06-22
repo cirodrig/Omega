@@ -1,5 +1,7 @@
 
--- These are helper functions used by both Set and Rel
+-- | Internal routines used by both "Data.Presburger.Omega.Set" and
+-- "Data.Presburger.Omega.Rel"
+
 module Data.Presburger.Omega.SetRel where
 
 import Data.Presburger.Omega.LowLevel

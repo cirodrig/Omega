@@ -22,7 +22,8 @@ module Data.Presburger.Omega.Rel
      exact,
      inexact,
      unknown,
-     union, intersection, composition
+     union, intersection, composition, join,
+     restrictDomain, restrictRange
     )
 where
 
@@ -248,3 +249,17 @@ union s1 s2 = useRel2Rel L.union (relInpDim s1) (relOutDim s1) s1 s2
 composition :: Rel -> Rel -> Rel
 composition s1 s2 =
     useRel2Rel L.composition (relInpDim s2) (relOutDim s1) s1 s2
+
+-- | Same as 'composition', with the arguments swapped.
+join :: Rel -> Rel -> Rel
+join r1 r2 = composition r2 r1
+
+restrictDomain :: Rel -> Set.Set -> Rel
+restrictDomain r s = unsafePerformIO $
+  omegaRelToRel (relInpDim r) (relOutDim r) =<<
+  L.restrictDomain (relOmegaRel r) (Set.toOmegaSet s)
+
+restrictRange :: Rel -> Set.Set -> Rel
+restrictRange r s = unsafePerformIO $
+  omegaRelToRel (relInpDim r) (relOutDim r) =<<
+  L.restrictRange (relOmegaRel r) (Set.toOmegaSet s)
