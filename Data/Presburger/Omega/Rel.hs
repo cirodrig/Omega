@@ -3,7 +3,7 @@ module Data.Presburger.Omega.Rel
     (Rel,
      -- * Building relations
      rel, functionalRel, fromOmegaRel,
-     -- * Operatoins on relations
+     -- * Operations on relations
      inputDimension, outputDimension,
      domain,
      predicate
