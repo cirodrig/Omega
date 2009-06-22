@@ -42,8 +42,7 @@ module Data.Presburger.Omega.Expr
      --
      -- | These are exported to allow other modules to build the low-level
      -- representation of expressions, and avoid the cost of simplifying
-     -- expressions.  To use them properly, you must know the form of
-     -- simplified expressions.
+     -- expressions.  Normally, the 'Exp' functions are sufficient.
      Expr, IntExpr, BoolExpr,
      PredOp(..),
      wrapExpr, wrapSimplifiedExpr,
@@ -124,6 +123,7 @@ wrapExpr :: Expr t -> Exp t
 wrapExpr e = Exp $ unsafePerformIO $ newIORef (ExprBox False e)
 
 -- | Wrap an expression that is known to be in simplified form.
+-- Errors may occur if the expression is not in this form.
 wrapSimplifiedExpr :: Expr t -> Exp t
 wrapSimplifiedExpr e = Exp $ unsafePerformIO $ newIORef (ExprBox True e)
 
@@ -157,13 +157,13 @@ newQuantified = do u <- newUnique
 freeVariables :: [Var]
 freeVariables = map Bound [0..]
 
--- | Produce a set of variables to use as "free variables" in an expression.
+-- | Produce a set of variables to use as free variables in an expression.
 -- This produces the list @[nthVariable 0, nthVariable 1, ...]@
 takeFreeVariables :: Int -> [Var]
 takeFreeVariables n = take n freeVariables
 
--- | A convenience function that turns each variable in 'takeFreeVariables'
--- into an expression.
+-- | Like 'takeFreeVariables', but produce the expression corresponding to
+-- each variable.
 takeFreeVariables' :: Int -> [IntExp]
 takeFreeVariables' n = map varE $ take n freeVariables
 
@@ -329,8 +329,7 @@ data Quantifier = Forall | Exists
 varExpr :: Var -> IntExpr
 varExpr = VarE
 
--- | Create a sum of products expression.  This expression does not need
--- simplification.
+-- | Create a sum of products expression
 sumOfProductsE :: Int           -- ^ constant part of sum
                -> [(Int, [Var])] -- ^ product terms
                -> IntExp
@@ -907,7 +906,7 @@ adjustBindings !firstBound !shift e = adj e
                                 Quantified _ -> expr
       adj (QuantE q e)     = QuantE q $ adjustBindings (firstBound + 1) shift e
 
--- | Check whether the expression has no more than the specified number
+-- | True if the expression has no more than the specified number
 -- of free variables.
 variablesWithinRange :: Int -> Exp t -> Bool
 variablesWithinRange n e = check n $ getExpr e

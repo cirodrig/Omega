@@ -532,15 +532,12 @@ queryDNFSet readEq unitEq readGeq unitGeq readConj unitConj s = do
                         -- FIXME: call into C to check the variable's kind
                         return $ var : acc
 
--- | A relation from points in a /domain/ that is a subset of Z^m
--- to points in a /range/ that is a subset of Z^n.
+-- | A relation from points in a /domain/ Z^m
+-- to points in a /range/ Z^n.
 -- This is a wrapper around the Omega library's Relation type.
 --
 -- A relation can be considered as just a set of points in Z^(m+n).
 -- However, many routines treat the domain and range differently.
--- Some routines expect relations to be functional (not one-to-many)
--- while other routines don't care.  Check the documentation for
--- individual routines.
 data OmegaRel = OmegaRel { rPtr :: {-# UNPACK #-} !(ForeignPtr Relation)
                          , rDom :: [VarHandle]
                          , rRng :: [VarHandle]

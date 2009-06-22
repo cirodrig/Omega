@@ -9,13 +9,13 @@ Maintainer:		cirodig@illinois.edu
 Stability:		Alpha
 Synopsis:		A library for manipulating Presburger arithmetic formulae
 Description:
-        This package provides an interface to the Omega library, which
-        provides tools for creating and performing logical operations on
-        Presburger arithmetic formulae.
+        This package provides tools for performing logical
+        operations on sets and relations whose members can be represented
+        compactly as a Presburger arithmetic formula.
 
         The Omega library must be installed to build this package.  It can
         be downloaded from
-        @http://github.com/davewathaverford/the-omega-project@ using git.
+        http:\/\/github.com\/davewathaverford\/the-omega-project using git.
 Category:		Data
 Extra-Source-Files:	configure.ac Makefile.in src/C_omega.h src/C_omega.cc
 Extra-Tmp-Files:	build/C_omega.o

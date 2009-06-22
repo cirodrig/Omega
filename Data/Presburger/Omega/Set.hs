@@ -1,4 +1,12 @@
 
+-- | Sets whose members are represented compactly using a
+-- Presburger arithmetic formula.  This is a high-level interface to
+-- 'OmegaSet'.
+--
+-- This module is intended to be imported qualified, e.g.
+--
+-- > import qualified Data.Presburger.Omega.Set as WSet
+
 module Data.Presburger.Omega.Set
     (Set, dimension, predicate, toOmegaSet,
      -- * Building sets
@@ -30,6 +38,7 @@ data Set = Set
     }
 
 instance Show Set where
+    -- Generate a call to 'set'
     showsPrec n s = showParen (n >= 10) $
                     showString "set " .
                     shows (setDim_ s) .

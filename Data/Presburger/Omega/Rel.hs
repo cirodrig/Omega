@@ -1,4 +1,12 @@
 
+-- | Relations whose members are represented compactly using a
+-- Presburger arithmetic formula.  This is a high-level interface to
+-- 'OmegaRel'.
+--
+-- This module is intended to be imported qualified, e.g.
+--
+-- > import qualified Data.Presburger.Omega.Rel as WRel
+
 module Data.Presburger.Omega.Rel
     (Rel,
      -- * Building relations
@@ -18,7 +26,11 @@ import Data.Presburger.Omega.LowLevel(OmegaRel)
 import Data.Presburger.Omega.SetRel
 import qualified Data.Presburger.Omega.Set as Set
 
--- | Partial functions from Z^m to Z^n.
+-- | A relation from points in a /domain/ Z^m to points in a /range/ Z^n.
+--
+-- A relation can be considered just a set of points in Z^(m+n).  However,
+-- many functions that operate on relations treat the domain and range
+-- differently.
 
 -- Variables are referenced by de Bruijn index.  The order is:
 -- [dom_1, dom_2 ... dom_n, rng_1, rng_2 ... rng_m]
@@ -31,6 +43,7 @@ data Rel = Rel
     }
 
 instance Show Rel where
+    -- Generate a call to 'rel'
     showsPrec n r = showParen (n >= 10) $
                     showString "rel " .
                     shows (relInpDim r) .
