@@ -32,18 +32,18 @@ import Data.Presburger.Omega.SetRel
 
 -- | Sets of points in Z^n defined by a formula.
 data Set = Set
-    { setDim_      :: !Int      -- ^ the number of variables
-    , setExp_      :: BoolExp   -- ^ a predicate defining the set
-    , setOmegaSet_ :: OmegaSet  -- ^ low-level representation of this set
+    { setDim      :: !Int      -- ^ the number of variables
+    , setExp      :: BoolExp   -- ^ a predicate defining the set
+    , setOmegaSet :: OmegaSet  -- ^ low-level representation of this set
     }
 
 instance Show Set where
     -- Generate a call to 'set'
     showsPrec n s = showParen (n >= 10) $
                     showString "set " .
-                    shows (setDim_ s) .
+                    shows (setDim s) .
                     showChar ' ' .
-                    showsPrec 10 (setExp_ s)
+                    showsPrec 10 (setExp s)
 
 -- | Convert a boolean expression to a set of points in Z^n.
 -- The expression should have one free variable for each dimension.
@@ -62,9 +62,9 @@ set :: Int                      -- ^ Number of dimensions
 set dim expr
     | variablesWithinRange dim expr =
         Set
-        { setDim_      = dim
-        , setExp_      = expr
-        , setOmegaSet_ = unsafePerformIO $ mkOmegaSet dim expr
+        { setDim      = dim
+        , setExp      = expr
+        , setOmegaSet = unsafePerformIO $ mkOmegaSet dim expr
         }
     | otherwise = error "set: Variables out of range"
 
@@ -79,9 +79,9 @@ fromOmegaSet :: OmegaSet -> IO Set
 fromOmegaSet oset = do
   (dim, expr) <- setToExpression oset
   return $ Set
-             { setDim_      = dim
-             , setExp_      = expr
-             , setOmegaSet_ = oset
+             { setDim      = dim
+             , setExp      = expr
+             , setOmegaSet = oset
              }
 
 -- | Internal function to convert an 'OmegaSet' to a 'Set', when we know
@@ -91,9 +91,9 @@ omegaSetToSet :: Int -> OmegaSet -> IO Set
 omegaSetToSet dim oset = do
   (_, expr) <- setToExpression oset
   return $ Set
-             { setDim_      = dim
-             , setExp_      = expr
-             , setOmegaSet_ = oset
+             { setDim      = dim
+             , setExp      = expr
+             , setOmegaSet = oset
              }
 
 -------------------------------------------------------------------------------
@@ -102,10 +102,10 @@ omegaSetToSet dim oset = do
 -- First, some helper functions for applying OmegaSet functions to Sets
 
 useSet :: (OmegaSet -> IO a) -> Set -> a
-useSet f s = unsafePerformIO $ f (setOmegaSet_ s)
+useSet f s = unsafePerformIO $ f (setOmegaSet s)
 
 useSet2 :: (OmegaSet -> OmegaSet -> IO a) -> Set -> Set -> a
-useSet2 f s1 s2 = unsafePerformIO $ f (setOmegaSet_ s1) (setOmegaSet_ s2)
+useSet2 f s1 s2 = unsafePerformIO $ f (setOmegaSet s1) (setOmegaSet s2)
 
 useSet2Set :: (OmegaSet -> OmegaSet -> IO OmegaSet)
            -> Int
@@ -113,19 +113,19 @@ useSet2Set :: (OmegaSet -> OmegaSet -> IO OmegaSet)
            -> Set
            -> Set
 useSet2Set f dim s1 s2 = unsafePerformIO $ do
-  omegaSetToSet dim =<< f (setOmegaSet_ s1) (setOmegaSet_ s2)
+  omegaSetToSet dim =<< f (setOmegaSet s1) (setOmegaSet s2)
 
 -- | Get the dimensionality of the space a set inhabits
 dimension :: Set -> Int
-dimension = setDim_
+dimension = setDim
 
 -- | Get the predicate defining a set's members
 predicate :: Set -> BoolExp
-predicate = setExp_
+predicate = setExp
 
 -- | Get the low-level representation of a set
 toOmegaSet :: Set -> OmegaSet
-toOmegaSet = setOmegaSet_
+toOmegaSet = setOmegaSet
 
 lowerBoundSatisfiable :: Set -> Bool
 lowerBoundSatisfiable = useSet L.isLowerBoundSatisfiable
@@ -152,10 +152,10 @@ unknown = useSet L.isUnknown
 -- The sets must have the same dimension
 -- (@setDimension s1 == setDimension s2@), or an error will be raised.
 intersection :: Set -> Set -> Set
-intersection s1 s2 = useSet2Set L.intersection (setDim_ s1) s1 s2
+intersection s1 s2 = useSet2Set L.intersection (setDim s1) s1 s2
 
 -- | Union of two sets.
 -- The sets must have the same dimension
 -- (@setDimension s1 == setDimension s2@), or an error will be raised.
 union :: Set -> Set -> Set
-union s1 s2 = useSet2Set L.union (setDim_ s1) s1 s2
+union s1 s2 = useSet2Set L.union (setDim s1) s1 s2
