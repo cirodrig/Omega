@@ -7,9 +7,9 @@ import Data.Presburger.Omega.Expr
 
 -- Make a lookup function for translating 'VarHandle's to 'Var's.
 -- The position of a handle determines what 'Var' it translates to. 
-makeLookupFunction :: [VarHandle] -> (VarHandle -> IntExp)
+makeLookupFunction :: [VarHandle] -> (VarHandle -> Var)
 makeLookupFunction lowLevelVars =
-    let expVars = takeFreeVariables' (length lowLevelVars)
+    let expVars = takeFreeVariables (length lowLevelVars)
         varLookupTable = zip lowLevelVars expVars
 
         findVar v = case lookup v varLookupTable
@@ -25,20 +25,20 @@ constraintToExpr :: Bool          -- ^ Is equality
                  -> [VarHandle]   -- ^ Bound variables
                  -> [Coefficient] -- ^ Terms
                  -> Int           -- ^ Constant part
-                 -> BoolExp       -- ^ Expression
+                 -> BoolExpr      -- ^ Expression
 constraintToExpr isEquality boundVars terms constant =
     let -- The existential variables are innermost
         findVar = makeLookupFunction boundVars
 
         -- Sum of all products and the constant term
-        sumTerm = CAUE Sum constant $ map productTerm terms
+        sumTerm = sumOfProductsExpr constant $ map productTerm terms
             where
-              productTerm (Coefficient v n) = CAUE Prod n [findVar v]
+              productTerm (Coefficient v n) = (n, [findVar v])
 
         -- Test whether is equal to zero/nonnegative
         boolTerm = if isEquality
-                   then PredE IsZero sumTerm
-                   else PredE IsGEZ sumTerm
+                   then testExpr IsZero sumTerm
+                   else testExpr IsGEZ sumTerm
     in boolTerm
 
 -- Get the set as a function.
@@ -46,7 +46,7 @@ constraintToExpr isEquality boundVars terms constant =
 setToExpression :: OmegaSet -> IO (Int, BoolExp)
 setToExpression s = do
   (setVars, conjuncts) <- queryDNFSet addEq [] addGeq [] addConjunct [] s
-  return (length setVars, disjE conjuncts)
+  return (length setVars, wrapSimplifiedExpr $ disjExpr conjuncts)
     where
       -- Call constraintToExpr with the existential variables bound first,
       -- then the set variables.
@@ -71,7 +71,7 @@ setToExpression s = do
 relToExpression :: OmegaRel -> IO (Int, Int, BoolExp)
 relToExpression s = do
   (inVars, outVars, cs) <- queryDNFRelation addEq [] addGeq [] addConjunct [] s
-  return (length inVars, length outVars, disjE cs)
+  return (length inVars, length outVars, wrapSimplifiedExpr $ disjExpr cs)
     where
       addEq inVars outVars exVars terms constant =
           let vars = exVars ++ inVars ++ outVars
@@ -91,7 +91,7 @@ wrapExistentialVars exVars eqs geqs = (conjunct :)
       conjunct =
           -- Create a conjunction of constraints, with one quantifier for each
           -- existential variable
-          iterateN (QuantE Exists) (length exVars) $ conjE (geqs ++ eqs)
+          iterateN existsExpr (length exVars) $ conjExpr (geqs ++ eqs)
     
 
 -- Apply a function n times
