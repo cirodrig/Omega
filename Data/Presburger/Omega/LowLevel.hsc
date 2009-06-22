@@ -29,7 +29,8 @@ module Data.Presburger.Omega.LowLevel
      isExact, isInexact, isUnknown,
 
      -- * Creating new sets and relations from old ones
-     union, intersection, domain,
+     union, intersection, composition,
+     domain, range,
 
      -- * Constructing formulas
      Formula,
@@ -191,7 +192,11 @@ foreign import ccall safe relation_union
     :: C_Relation -> C_Relation -> IO C_Relation
 foreign import ccall safe relation_intersection
     :: C_Relation -> C_Relation -> IO C_Relation
+foreign import ccall safe relation_composition
+    :: C_Relation -> C_Relation -> IO C_Relation
 foreign import ccall safe relation_domain
+    :: C_Relation -> IO C_Relation
+foreign import ccall safe relation_range
     :: C_Relation -> IO C_Relation
 
 foreign import ccall safe relation_add_and
@@ -538,6 +543,7 @@ queryDNFSet readEq unitEq readGeq unitGeq readConj unitConj s = do
 --
 -- A relation can be considered as just a set of points in Z^(m+n).
 -- However, many routines treat the domain and range differently.
+
 data OmegaRel = OmegaRel { rPtr :: {-# UNPACK #-} !(ForeignPtr Relation)
                          , rDom :: [VarHandle]
                          , rRng :: [VarHandle]
@@ -712,7 +718,7 @@ union :: Presburger a => a -> a -> IO a
 union rel1 rel2
     | sameArity rel1 rel2 =
           fromPtr =<< withPresburger2 rel1 rel2 relation_union 
-    | otherwise = error "union: Presburger values have different arities"
+    | otherwise = error "union: arguments have different arities"
 
 -- | Compute the intersection of two sets or relations.  The sets or relations
 -- must have the same arity.
@@ -720,11 +726,23 @@ intersection :: Presburger a => a -> a -> IO a
 intersection rel1 rel2
     | sameArity rel1 rel2 =
           fromPtr =<< withPresburger2 rel1 rel2 relation_intersection
-    | otherwise = error "intersection: Presburger values have different arities"
+    | otherwise = error "intersection: arguments have different arities"
+
+-- | Compute the composition of two sets or relations.  The
+-- first relation's domain must be the same dimension as the second's range.
+composition :: OmegaRel -> OmegaRel -> IO OmegaRel
+composition rel1 rel2
+    | length (rDom rel1) == length (rRng rel2) =
+          fromPtr =<< withPresburger2 rel1 rel2 relation_composition
+    | otherwise = error "composition: argument arities do not agree"
 
 -- | Get the domain of a relation.
 domain :: OmegaRel -> IO OmegaSet
 domain rel = fromPtr =<< withPresburger rel relation_domain
+
+-- | Get the range of a relation.
+range :: OmegaRel -> IO OmegaSet
+range rel = fromPtr =<< withPresburger rel relation_range
 
 -------------------------------------------------------------------------------
 -- Formulae

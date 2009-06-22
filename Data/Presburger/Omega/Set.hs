@@ -8,10 +8,12 @@
 -- > import qualified Data.Presburger.Omega.Set as WSet
 
 module Data.Presburger.Omega.Set
-    (Set, dimension, predicate, toOmegaSet,
+    (Set,
      -- * Building sets
      set, fromOmegaSet,
      -- * Operations on sets
+     toOmegaSet,
+     dimension, predicate,
      lowerBoundSatisfiable,
      upperBoundSatisfiable,
      obviousTautology,
@@ -45,7 +47,8 @@ instance Show Set where
                     showChar ' ' .
                     showsPrec 10 (setExp s)
 
--- | Convert a boolean expression to a set of points in Z^n.
+-- | Create a set whose members are defined by a predicate.
+--
 -- The expression should have one free variable for each dimension.
 --
 -- For example, the set of all points on the plane is
@@ -88,13 +91,13 @@ fromOmegaSet oset = do
 -- the set's dimension.  This can avoid actually building the expression
 -- when all we want is the dimension.
 omegaSetToSet :: Int -> OmegaSet -> IO Set
-omegaSetToSet dim oset = do
-  (_, expr) <- setToExpression oset
-  return $ Set
-             { setDim      = dim
-             , setExp      = expr
-             , setOmegaSet = oset
-             }
+omegaSetToSet dim oset = return $
+    Set
+    { setDim      = dim
+    , setExp      = unsafePerformIO $ do (_, expr) <- setToExpression oset
+                                         return expr
+    , setOmegaSet = oset
+    }
 
 -------------------------------------------------------------------------------
 -- Using sets
@@ -150,12 +153,12 @@ unknown = useSet L.isUnknown
 
 -- | Intersection of two sets.
 -- The sets must have the same dimension
--- (@setDimension s1 == setDimension s2@), or an error will be raised.
+-- (@dimension s1 == dimension s2@), or an error will be raised.
 intersection :: Set -> Set -> Set
 intersection s1 s2 = useSet2Set L.intersection (setDim s1) s1 s2
 
 -- | Union of two sets.
 -- The sets must have the same dimension
--- (@setDimension s1 == setDimension s2@), or an error will be raised.
+-- (@dimension s1 == dimension s2@), or an error will be raised.
 union :: Set -> Set -> Set
 union s1 s2 = useSet2Set L.union (setDim s1) s1 s2

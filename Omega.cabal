@@ -21,7 +21,7 @@ Extra-Source-Files:	configure.ac Makefile.in src/C_omega.h src/C_omega.cc
 Extra-Tmp-Files:	build/C_omega.o
 
 Library
-  Build-Depends:	base, parsec, pretty, containers
+  Build-Depends:	base, containers
   Exposed-Modules:
         Data.Presburger.Omega
         Data.Presburger.Omega.Expr

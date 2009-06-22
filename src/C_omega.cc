@@ -117,11 +117,22 @@ Relation *relation_intersection(Relation *r, Relation *s)
 }
 
 extern "C"
+Relation *relation_composition(Relation *r, Relation *s)
+{
+  return new Relation(Composition(copy(*r), copy(*s)));
+}
+
+extern "C"
 Relation *relation_domain(Relation *rel)
 {
   return new Relation(Domain(copy(*rel)));
 }
 
+extern "C"
+Relation *relation_range(Relation *rel)
+{
+  return new Relation(Range(copy(*rel)));
+}
 
 extern "C"
 F_And *relation_add_and(Relation *rel)

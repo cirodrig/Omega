@@ -12,9 +12,17 @@ module Data.Presburger.Omega.Rel
      -- * Building relations
      rel, functionalRel, fromOmegaRel,
      -- * Operations on relations
+     toOmegaRel,
      inputDimension, outputDimension,
-     domain,
-     predicate
+     domain, range, predicate,
+     lowerBoundSatisfiable,
+     upperBoundSatisfiable,
+     obviousTautology,
+     definiteTautology,
+     exact,
+     inexact,
+     unknown,
+     union, intersection, composition
     )
 where
 
@@ -54,16 +62,12 @@ instance Show Rel where
         where
           showChar c = (c:)
 
--- | Create a new relation from Z^m to Z^n from a predicate that
--- defines the relation.
+-- | Create a relation whose members are defined by a predicate.
 --
--- The expression should have @m+n@ free variables.  The first @m@
+-- The expression should have @m+n@ free variables, where @m@ and @n@ are
+-- the first two parameters.  The first @m@
 -- variables refer to the domain, and the remaining variables refer to
 -- the range.
---
--- Relations should be functional, that is, each element of the domain
--- maps to at most one element of the range.  This property is not
--- verified.
 
 rel :: Int                      -- ^ Dimensionality of the domain
     -> Int                      -- ^ Dimensionality of the range
@@ -82,10 +86,10 @@ rel inDim outDim expr
 mkOmegaRel inDim outDim expr =
     L.newOmegaRel inDim outDim $ \dom rng -> expToFormula (dom ++ rng) expr
 
--- | Create a new relation from Z^m to Z^n from functions defining
--- each output in terms of the inputs.
+-- | Create a relation where each output is a function of the inputs.
 --
--- The expression parameters should have @m@ free variables.
+-- Each expression should have @m@ free variables, where @m@
+-- is the first parameter.
 --
 -- For example, the relation @{(x, y) -> (y, x) | x > 0 && y > 0}@ is
 --
@@ -152,12 +156,32 @@ fromOmegaRel orel = do
              , relOmegaRel = orel
              }
 
+-- | Internal function to convert an 'OmegaRel' to a 'Rel', when we know
+-- the relation's dimensions.
+omegaRelToRel :: Int -> Int -> OmegaRel -> IO Rel
+omegaRelToRel inpDim outDim orel = return $
+    Rel
+    { relInpDim   = inpDim
+    , relOutDim   = outDim
+    , relFun      = unsafePerformIO $ do (_, _, expr) <- relToExpression orel
+                                         return $ expr
+    , relOmegaRel = orel
+    }
+
 -------------------------------------------------------------------------------
 -- Operations on relations
 
 -- Some helper functions
 useRel :: (OmegaRel -> IO a) -> Rel -> a
 useRel f r = unsafePerformIO $ f $ relOmegaRel r
+
+useRel2 :: (OmegaRel -> OmegaRel -> IO a) -> Rel -> Rel -> a
+useRel2 f r1 r2 = unsafePerformIO $ f (relOmegaRel r1) (relOmegaRel r2)
+
+useRel2Rel :: (OmegaRel -> OmegaRel -> IO OmegaRel)
+           -> Int -> Int -> Rel -> Rel -> Rel
+useRel2Rel f inpDim outDim r1 r2 = unsafePerformIO $ do
+  omegaRelToRel inpDim outDim =<< f (relOmegaRel r1) (relOmegaRel r2)
 
 -- | Get the dimensionality of a relation's domain
 inputDimension :: Rel -> Int
@@ -167,11 +191,60 @@ inputDimension = relInpDim
 outputDimension :: Rel -> Int
 outputDimension = relOutDim
 
+-- | Convert a 'Rel' to an 'OmegaRel'.
+toOmegaRel :: Rel -> OmegaRel
+toOmegaRel = relOmegaRel
+
 -- | Get the predicate defining a relation.
 predicate :: Rel -> BoolExp
 predicate = relFun
 
--- | Get the predicate defining a relation's domain
 domain :: Rel -> Set.Set
 domain r = useRel (\ptr -> Set.fromOmegaSet =<< L.domain ptr) r
 
+range :: Rel -> Set.Set
+range r = useRel (\ptr -> Set.fromOmegaSet =<< L.range ptr) r
+
+lowerBoundSatisfiable :: Rel -> Bool
+lowerBoundSatisfiable = useRel L.isLowerBoundSatisfiable
+
+upperBoundSatisfiable :: Rel -> Bool
+upperBoundSatisfiable = useRel L.isUpperBoundSatisfiable
+
+obviousTautology :: Rel -> Bool
+obviousTautology = useRel L.isObviousTautology
+
+definiteTautology :: Rel -> Bool
+definiteTautology = useRel L.isDefiniteTautology
+
+exact :: Rel -> Bool
+exact = useRel L.isExact
+
+inexact :: Rel -> Bool
+inexact = useRel L.isInexact
+
+unknown :: Rel -> Bool
+unknown = useRel L.isUnknown
+
+-- | Intersection of two relations.
+-- The relations must have the same dimension
+-- (@inputDimension r1 == inputDimension r2 && outputDimension r1 == outputDimension r2@),
+-- or an error will be raised.
+intersection :: Rel -> Rel -> Rel
+intersection s1 s2 =
+    useRel2Rel L.intersection (relInpDim s1) (relOutDim s1) s1 s2
+
+-- | Union of two relations.
+-- The relations must have the same dimension
+-- (@inputDimension r1 == inputDimension r2 && outputDimension r1 == outputDimension r2@),
+-- or an error will be raised.
+union :: Rel -> Rel -> Rel
+union s1 s2 = useRel2Rel L.union (relInpDim s1) (relOutDim s1) s1 s2
+
+-- | Composition of two relations.
+-- The second relation's output must be the same size as the first's input
+-- (@outputDimension r2 == inputDimension r1@),
+-- or an error will be raised.
+composition :: Rel -> Rel -> Rel
+composition s1 s2 =
+    useRel2Rel L.composition (relInpDim s2) (relOutDim s1) s1 s2

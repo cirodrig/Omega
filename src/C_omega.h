@@ -36,7 +36,9 @@ int is_inexact(struct Relation *rel);
 int is_unknown(struct Relation *rel);
 struct Relation *relation_union(struct Relation *, struct Relation *);
 struct Relation *relation_intersection(struct Relation *, struct Relation *);
+struct Relation *relation_composition(struct Relation *, struct Relation *);
 struct Relation *relation_domain(struct Relation *);
+struct Relation *relation_range(struct Relation *);
 
 struct F_And *relation_add_and(struct Relation *rel);
 struct Formula *relation_add_or(struct Relation *rel);
