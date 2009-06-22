@@ -28,7 +28,13 @@ data Set = Set
     , setExp_      :: BoolExp   -- ^ a predicate defining the set
     , setOmegaSet_ :: OmegaSet  -- ^ low-level representation of this set
     }
-    deriving(Show)
+
+instance Show Set where
+    showsPrec n s = showParen (n >= 10) $
+                    showString "set " .
+                    shows (setDim_ s) .
+                    showChar ' ' .
+                    showsPrec 10 (setExp_ s)
 
 -- | Convert a boolean expression to a set of points in Z^n.
 -- The expression should have one free variable for each dimension.

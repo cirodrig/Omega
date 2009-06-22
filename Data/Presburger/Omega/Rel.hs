@@ -29,7 +29,17 @@ data Rel = Rel
     , relFun    :: BoolExp      -- ^ function defining the relation
     , relOmegaRel :: OmegaRel   -- ^ low-level representation of this relation
     }
-    deriving(Show)
+
+instance Show Rel where
+    showsPrec n r = showParen (n >= 10) $
+                    showString "rel " .
+                    shows (relInpDim r) .
+                    showChar ' ' .
+                    shows (relOutDim r) .
+                    showChar ' ' .
+                    showsPrec 10 (relFun r)
+        where
+          showChar c = (c:)
 
 -- | Create a new relation from Z^m to Z^n from a predicate that
 -- defines the relation.
@@ -67,7 +77,7 @@ mkOmegaRel inDim outDim expr =
 -- For example, the relation @{(x, y) -> (y, x) | x > 0 && y > 0}@ is
 --
 -- > let [x, y] = takeFreeVariables' 2
--- > in rel 2 [y, x] (conj [y |>| 0, x |>| 0])
+-- > in functionalRel 2 [y, x] (conjE [y |>| intE 0, x |>| intE 0])
 
 functionalRel :: Int            -- ^ Dimensionality of the domain
               -> [IntExp]       -- ^ Function relating domain to range
