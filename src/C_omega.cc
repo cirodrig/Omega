@@ -105,6 +105,18 @@ int hsw_is_unknown(Relation *rel)
 }
 
 extern "C"
+Relation *hsw_upper_bound(Relation *rel)
+{
+  return new Relation(Upper_Bound(copy(*rel)));
+}
+
+extern "C"
+Relation *hsw_lower_bound(Relation *rel)
+{
+  return new Relation(Lower_Bound(copy(*rel)));
+}
+
+extern "C"
 Relation *hsw_union(Relation *r, Relation *s)
 {
   return new Relation(Union(copy(*r), copy(*s)));
@@ -132,6 +144,24 @@ extern "C"
 Relation *hsw_restrict_range(Relation *r, Relation *s)
 {
   return new Relation(Restrict_Range(copy(*r), copy(*s)));
+}
+
+extern "C"
+Relation *hsw_difference(Relation *r, Relation *s)
+{
+  return new Relation(Difference(copy(*r), copy(*s)));
+}
+
+extern "C"
+Relation *hsw_cross_product(Relation *r, Relation *s)
+{
+  return new Relation(Cross_Product(copy(*r), copy(*s)));
+}
+
+extern "C"
+Relation *hsw_gist(Relation *r, Relation *s, int effort)
+{
+  return new Relation(Gist(copy(*r), copy(*s), effort));
 }
 
 extern "C"

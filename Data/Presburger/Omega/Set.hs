@@ -21,7 +21,10 @@ module Data.Presburger.Omega.Set
      exact,
      inexact,
      unknown,
-     union, intersection
+     upperBound, lowerBound,
+     union, intersection, difference,
+     Effort(..),
+     gist
     )
 where
 
@@ -29,7 +32,7 @@ import System.IO.Unsafe
 
 import Data.Presburger.Omega.Expr
 import qualified Data.Presburger.Omega.LowLevel as L
-import Data.Presburger.Omega.LowLevel(OmegaSet)
+import Data.Presburger.Omega.LowLevel(OmegaSet, Effort(..))
 import Data.Presburger.Omega.SetRel
 
 -- | Sets of points in Z^n defined by a formula.
@@ -107,6 +110,10 @@ omegaSetToSet dim oset = return $
 useSet :: (OmegaSet -> IO a) -> Set -> a
 useSet f s = unsafePerformIO $ f (setOmegaSet s)
 
+useSetSet :: Int -> (OmegaSet -> IO OmegaSet) -> Set -> Set
+useSetSet dim f s = unsafePerformIO $ do
+  omegaSetToSet dim =<< f (setOmegaSet s)
+
 useSet2 :: (OmegaSet -> OmegaSet -> IO a) -> Set -> Set -> a
 useSet2 f s1 s2 = unsafePerformIO $ f (setOmegaSet s1) (setOmegaSet s2)
 
@@ -130,6 +137,12 @@ predicate = setExp
 toOmegaSet :: Set -> OmegaSet
 toOmegaSet = setOmegaSet
 
+upperBound :: Set -> Set
+upperBound s = useSetSet (setDim s) L.upperBound s
+
+lowerBound :: Set -> Set
+lowerBound s = useSetSet (setDim s) L.lowerBound s
+
 lowerBoundSatisfiable :: Set -> Bool
 lowerBoundSatisfiable = useSet L.lowerBoundSatisfiable
 
@@ -151,14 +164,26 @@ inexact = useSet L.inexact
 unknown :: Set -> Bool
 unknown = useSet L.unknown
 
+-- | Union of two sets.
+-- The sets must have the same dimension
+-- (@dimension s1 == dimension s2@), or an error will be raised.
+union :: Set -> Set -> Set
+union s1 s2 = useSet2Set L.union (setDim s1) s1 s2
+
 -- | Intersection of two sets.
 -- The sets must have the same dimension
 -- (@dimension s1 == dimension s2@), or an error will be raised.
 intersection :: Set -> Set -> Set
 intersection s1 s2 = useSet2Set L.intersection (setDim s1) s1 s2
 
--- | Union of two sets.
+-- | Difference of two sets.
 -- The sets must have the same dimension
 -- (@dimension s1 == dimension s2@), or an error will be raised.
-union :: Set -> Set -> Set
-union s1 s2 = useSet2Set L.union (setDim s1) s1 s2
+difference :: Set -> Set -> Set
+difference s1 s2 = useSet2Set L.difference (setDim s1) s1 s2
+
+-- | Gist of one set, given another.
+-- The sets must have the same dimension
+-- (@dimension s1 == dimension s2@), or an error will be raised.
+gist :: Effort -> Set -> Set -> Set
+gist effort s1 s2 = useSet2Set (L.gist effort) (setDim s1) s1 s2

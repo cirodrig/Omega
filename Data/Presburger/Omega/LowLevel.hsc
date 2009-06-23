@@ -29,8 +29,11 @@ module Data.Presburger.Omega.LowLevel
      exact, inexact, unknown,
 
      -- * Creating new sets and relations from old ones
+     Effort(..),
+     upperBound, lowerBound,
      union, intersection, composition,
      restrictDomain, restrictRange,
+     difference, crossProduct, gist,
      domain, range,
 
      -- * Constructing formulas
@@ -97,6 +100,12 @@ type C_EQ_Handle        = Ptr EQ_Handle
 type C_GEQ_Iterator     = Ptr GEQ_Iterator
 type C_GEQ_Handle       = Ptr GEQ_Handle
 type C_Constr_Vars_Iter = Ptr Constr_Vars_Iter
+
+-- | The 'gist' routine takes a parameter specifying how much effort to
+-- put into generating a good result.  Higher effort takes more time.
+-- It's unspecified what a given effort level does.
+data Effort = Light | Moderate | Strenuous
+              deriving (Eq, Show, Enum)
 
 -- Everything containing a formula is an instance of class Logical
 class Logical f where
@@ -189,6 +198,10 @@ foreign import ccall safe hsw_is_inexact
     :: C_Relation -> IO Bool
 foreign import ccall safe hsw_is_unknown
     :: C_Relation -> IO Bool
+foreign import ccall safe hsw_upper_bound
+    :: C_Relation -> IO C_Relation
+foreign import ccall safe hsw_lower_bound
+    :: C_Relation -> IO C_Relation
 foreign import ccall safe hsw_union
     :: C_Relation -> C_Relation -> IO C_Relation
 foreign import ccall safe hsw_intersection
@@ -199,6 +212,12 @@ foreign import ccall safe hsw_restrict_domain
     :: C_Relation -> C_Relation -> IO C_Relation
 foreign import ccall safe hsw_restrict_range
     :: C_Relation -> C_Relation -> IO C_Relation
+foreign import ccall safe hsw_difference
+    :: C_Relation -> C_Relation -> IO C_Relation
+foreign import ccall safe hsw_cross_product
+    :: C_Relation -> C_Relation -> IO C_Relation
+foreign import ccall safe hsw_gist
+    :: C_Relation -> C_Relation -> CInt -> IO C_Relation
 foreign import ccall safe hsw_domain
     :: C_Relation -> IO C_Relation
 foreign import ccall safe hsw_range
@@ -717,6 +736,16 @@ unknown rel               = withPresburger rel hsw_is_unknown
 -------------------------------------------------------------------------------
 -- Creating new sets and relations from old ones
 
+-- | Compute the upper bound of a set or relation by setting all UNKNOWN
+-- constraints to true.
+upperBound :: Presburger a => a -> IO a
+upperBound rel = fromPtr =<< withPresburger rel hsw_upper_bound
+
+-- | Compute the lower bound of a set or relation by setting all UNKNOWN
+-- constraints to false.
+lowerBound :: Presburger a => a -> IO a
+lowerBound rel = fromPtr =<< withPresburger rel hsw_lower_bound
+
 -- | Compute the union of two sets or relations.  The sets or relations
 -- must have the same arity.
 union :: Presburger a => a -> a -> IO a
@@ -751,7 +780,32 @@ restrictRange :: OmegaRel -> OmegaSet -> IO OmegaRel
 restrictRange rel1 set
     | length (rDom rel1) == length (sDom set) =
           fromPtr =<< withPresburger2 rel1 set hsw_restrict_range
-    | otherwise = error "restrictDomain: argument arities do not agree"
+    | otherwise = error "restrictRange: argument arities do not agree"
+
+difference :: Presburger a => a -> a -> IO a
+difference rel1 rel2
+    | sameArity rel1 rel2 =
+        fromPtr =<< withPresburger2 rel1 rel2 hsw_difference
+    | otherwise = error "difference: arguments have different arities"
+
+crossProduct :: OmegaSet -> OmegaSet -> IO OmegaRel
+crossProduct set1 set2 =
+    fromPtr =<< withPresburger2 set1 set2 hsw_cross_product
+
+-- | Get the gist of a set or relation, given some background truth.  The
+-- gist operator uses heuristics to make a set or relation simpler, while
+-- still retaining sufficient information to regenerate the original by
+-- re-introducing the background truth.  The sets or relations
+-- must have the same arity.
+--
+-- If @x <- gist effort r given@ and
+-- @y <- 'intersection' x given@, then @y == r@.
+gist :: Presburger a => Effort -> a -> a -> IO a
+gist effort rel given
+    | sameArity rel given =
+        withPresburger2 rel given $ \ptr ptrGiven ->
+          fromPtr =<< hsw_gist ptr ptrGiven (fromIntegral $ fromEnum effort)
+    | otherwise = error "gist: arguments have different arities"
 
 -- | Get the domain of a relation.
 domain :: OmegaRel -> IO OmegaSet

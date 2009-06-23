@@ -34,11 +34,16 @@ int hsw_is_definite_tautology(struct Relation *rel);
 int hsw_is_exact(struct Relation *rel);
 int hsw_is_inexact(struct Relation *rel);
 int hsw_is_unknown(struct Relation *rel);
+struct Relation *hsw_upper_bound(struct Relation *);
+struct Relation *hsw_lower_bound(struct Relation *);
 struct Relation *hsw_union(struct Relation *, struct Relation *);
 struct Relation *hsw_intersection(struct Relation *, struct Relation *);
 struct Relation *hsw_composition(struct Relation *, struct Relation *);
 struct Relation *hsw_restrict_domain(struct Relation *, struct Relation *);
 struct Relation *hsw_restrict_range(struct Relation *, struct Relation *);
+struct Relation *hsw_difference(struct Relation *, struct Relation *);
+struct Relation *hsw_cross_product(struct Relation *, struct Relation *);
+struct Relation *hsw_gist(struct Relation *, struct Relation *, int);
 struct Relation *hsw_domain(struct Relation *);
 struct Relation *hsw_range(struct Relation *);
 

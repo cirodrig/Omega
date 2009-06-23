@@ -15,6 +15,7 @@ module Data.Presburger.Omega.Rel
      toOmegaRel,
      inputDimension, outputDimension,
      domain, range, predicate,
+     upperBound, lowerBound,
      lowerBoundSatisfiable,
      upperBoundSatisfiable,
      obviousTautology,
@@ -23,7 +24,10 @@ module Data.Presburger.Omega.Rel
      inexact,
      unknown,
      union, intersection, composition, join,
-     restrictDomain, restrictRange
+     restrictDomain, restrictRange,
+     difference, crossProduct,
+     Effort(..),
+     gist
     )
 where
 
@@ -31,7 +35,7 @@ import System.IO.Unsafe
 
 import Data.Presburger.Omega.Expr
 import qualified Data.Presburger.Omega.LowLevel as L
-import Data.Presburger.Omega.LowLevel(OmegaRel)
+import Data.Presburger.Omega.LowLevel(OmegaRel, Effort(..))
 import Data.Presburger.Omega.SetRel
 import qualified Data.Presburger.Omega.Set as Set
 
@@ -176,6 +180,10 @@ omegaRelToRel inpDim outDim orel = return $
 useRel :: (OmegaRel -> IO a) -> Rel -> a
 useRel f r = unsafePerformIO $ f $ relOmegaRel r
 
+useRelRel :: Int -> Int -> (OmegaRel -> IO OmegaRel) -> Rel -> Rel
+useRelRel inpDim outDim f r = unsafePerformIO $ do
+  omegaRelToRel inpDim outDim =<< f (relOmegaRel r)
+
 useRel2 :: (OmegaRel -> OmegaRel -> IO a) -> Rel -> Rel -> a
 useRel2 f r1 r2 = unsafePerformIO $ f (relOmegaRel r1) (relOmegaRel r2)
 
@@ -227,13 +235,11 @@ inexact = useRel L.inexact
 unknown :: Rel -> Bool
 unknown = useRel L.unknown
 
--- | Intersection of two relations.
--- The relations must have the same dimension
--- (@inputDimension r1 == inputDimension r2 && outputDimension r1 == outputDimension r2@),
--- or an error will be raised.
-intersection :: Rel -> Rel -> Rel
-intersection s1 s2 =
-    useRel2Rel L.intersection (relInpDim s1) (relOutDim s1) s1 s2
+upperBound :: Rel -> Rel
+upperBound r = useRelRel (relInpDim r) (relOutDim r) L.upperBound r
+
+lowerBound :: Rel -> Rel
+lowerBound r = useRelRel (relInpDim r) (relOutDim r) L.lowerBound r
 
 -- | Union of two relations.
 -- The relations must have the same dimension
@@ -241,6 +247,14 @@ intersection s1 s2 =
 -- or an error will be raised.
 union :: Rel -> Rel -> Rel
 union s1 s2 = useRel2Rel L.union (relInpDim s1) (relOutDim s1) s1 s2
+
+-- | Intersection of two relations.
+-- The relations must have the same dimension
+-- (@inputDimension r1 == inputDimension r2 && outputDimension r1 == outputDimension r2@),
+-- or an error will be raised.
+intersection :: Rel -> Rel -> Rel
+intersection s1 s2 =
+    useRel2Rel L.intersection (relInpDim s1) (relOutDim s1) s1 s2
 
 -- | Composition of two relations.
 -- The second relation's output must be the same size as the first's input
@@ -263,3 +277,25 @@ restrictRange :: Rel -> Set.Set -> Rel
 restrictRange r s = unsafePerformIO $
   omegaRelToRel (relInpDim r) (relOutDim r) =<<
   L.restrictRange (relOmegaRel r) (Set.toOmegaSet s)
+
+-- | Difference of two relations.
+-- The relations must have the same dimension
+-- (@inputDimension r1 == inputDimension r2 && outputDimension r1 == outputDimension r2@),
+-- or an error will be raised.
+difference :: Rel -> Rel -> Rel
+difference s1 s2 =
+    useRel2Rel L.difference (relInpDim s1) (relOutDim s1) s1 s2
+
+-- | Cross product of two sets.
+crossProduct :: Set.Set -> Set.Set -> Rel
+crossProduct s1 s2 = unsafePerformIO $
+  omegaRelToRel (Set.dimension s1) (Set.dimension s2) =<<
+  L.crossProduct (Set.toOmegaSet s1) (Set.toOmegaSet s2)
+
+-- | Gist of one relation, given another.
+-- The relations must have the same dimension
+-- (@inputDimension r1 == inputDimension r2 && outputDimension r1 == outputDimension r2@),
+-- or an error will be raised.
+gist :: Effort -> Rel -> Rel -> Rel
+gist effort r1 r2 =
+    useRel2Rel (L.gist effort) (relInpDim r1) (relOutDim r1) r1 r2
