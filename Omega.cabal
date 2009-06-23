@@ -1,6 +1,6 @@
 Name:			Omega
 Version:		0.1.1
-Cabal-Version:		>= 1.2
+Cabal-Version:		>= 1.2.3
 Build-Type:		Custom
 License:		OtherLicense
 License-File:		LICENSE
@@ -27,7 +27,7 @@ Extra-Source-Files:
 Extra-Tmp-Files:	build/C_omega.o
 
 Library
-  Build-Depends:	base, containers
+  Build-Depends:	base >= 3 && < 4, containers
   Exposed-Modules:
         Data.Presburger.Omega.Expr
         Data.Presburger.Omega.LowLevel
