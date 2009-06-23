@@ -1,12 +1,19 @@
 
--- | Expressions are the high-level interface to the Omega library.
--- Expressions can be built in a freeform manner; they will be simplified
--- to a form that the underlying library can use.
+-- | Expressions are the high-level interface for creating Presburger
+-- formulae.  As in Presburger arithmetic, expressions can
+-- represent addition, subtraction, quantification, inequalities, and boolean
+-- operators.
+--
+-- Expressions allow formulas to be input in a freeform manner.  When
+-- converted to a formula with 'expToFormula', they will be simplified to a
+-- form that the underlying library can use.
+-- Multplication is unrestricted; however, if an
+-- expression involves the product of two non-constant terms, it cannot be
+-- converted to a formula.
 -- 
 -- This module handles expressions and converts them to formulas.
 -- Sets and relations are managed by the "Data.Presburger.Omega.Set"
 -- and "Data.Presburger.Omega.Rel" modules.
-
 
 {-# OPTIONS_GHC -XBangPatterns
                 -XTypeFamilies
@@ -16,15 +23,6 @@
                 -XUndecidableInstances #-}
 module Data.Presburger.Omega.Expr
     (-- * Expressions
-     -- 
-     -- | Expressions include addition, subtraction, inequalities,
-     -- boolean operations, and quantifiers, as in Presburger arithmetic.
-     -- Multiplication is also permitted; however, a product involving two or
-     -- more variables cannot be used to create a set or relation.
-     -- To avoid this, only multiply terms containing variables by constants.
-     --
-     -- The library currently cannot create a set or relation if any integer
-     -- expressions contain quantifiers.
      Exp, IntExp, BoolExp,
      Var,
 
@@ -32,9 +30,10 @@ module Data.Presburger.Omega.Expr
      nthVariable, takeFreeVariables, takeFreeVariables',
      varE, nthVarE, intE, boolE, trueE, falseE, negateE,
      sumE, prodE, notE, conjE, disjE,
+     (|&&|),
      sumOfProductsE,
-     isZeroE, isNonnegativeE,
      (|+|), (|-|), (|*|),
+     isZeroE, isNonnegativeE,
      (|==|), (|/=|), (|>|), (|>=|), (|<|), (|<=|),
      forallE, existsE,
 
@@ -76,6 +75,7 @@ import Data.Presburger.Omega.LowLevel
 infixl 7 |*|
 infixl 6 |+|, |-|
 infix 4 |>|, |>=|, |<|, |<=|, |==|, |/=|
+infixr 3 |&&|
 
 -- | Integer and boolean-valued expressions.
 
@@ -123,7 +123,6 @@ wrapExpr :: Expr t -> Exp t
 wrapExpr e = Exp $ unsafePerformIO $ newIORef (ExprBox False e)
 
 -- | Wrap an expression that is known to be in simplified form.
--- Errors may occur if the expression is not in this form.
 wrapSimplifiedExpr :: Expr t -> Exp t
 wrapSimplifiedExpr e = Exp $ unsafePerformIO $ newIORef (ExprBox True e)
 
@@ -209,13 +208,9 @@ conjE es = wrapExpr $ CAUE Conj True $ map getExpr es
 disjE :: [BoolExp] -> BoolExp
 disjE es = wrapExpr $ CAUE Disj False $ map getExpr es
 
--- | Test whether an integer expression is zero
-isZeroE :: IntExp -> BoolExp
-isZeroE e = wrapExpr $ PredE IsZero $ getExpr e
-
--- | Test whether an integer expression is nonnegative
-isNonnegativeE :: IntExp -> BoolExp
-isNonnegativeE e = wrapExpr $ PredE IsGEZ $ getExpr e
+-- | Conjunction
+(|&&|) :: BoolExp -> BoolExp -> BoolExp
+e |&&| f = wrapExpr $ CAUE Conj True [getExpr e, getExpr f]
 
 -- | Add
 (|+|) :: IntExp -> IntExp -> IntExp
@@ -228,6 +223,14 @@ e |-| f = sumE [e, negateE f]
 -- | Multiply
 (|*|) :: IntExp -> IntExp -> IntExp
 e |*| f = prodE [e, f]
+
+-- | Test whether an integer expression is zero
+isZeroE :: IntExp -> BoolExp
+isZeroE e = wrapExpr $ PredE IsZero $ getExpr e
+
+-- | Test whether an integer expression is nonnegative
+isNonnegativeE :: IntExp -> BoolExp
+isNonnegativeE e = wrapExpr $ PredE IsGEZ $ getExpr e
 
 -- | Equality test
 (|==|) :: IntExp -> IntExp -> BoolExp
@@ -266,9 +269,9 @@ existsE f = wrapExpr $ QuantE Exists $ getExpr $ withFreshVariable f
 -- has index 0 and all other free variables' indices are incremented
 -- by 1.
 withFreshVariable :: (Var -> Exp t) -> Exp t
-withFreshVariable f = wrapExpr $ unsafePerformIO $ do
+withFreshVariable f =unsafePerformIO $ do
   v <- newQuantified
-  return $ rename v (Bound 0) $ adjustBindings 0 1 $ getExpr $ f v
+  return $ rename v (Bound 0) $ adjustBindings 0 1 $ f v
 
 -------------------------------------------------------------------------------
 
@@ -806,11 +809,16 @@ lookupVar n (v : vars) | n > 0  = lookupVar (n - 1) vars
 lookupVar _ [] = error "lookupVar: variable index out of range"
 
 -- | Convert a boolean expression to a formula.
--- The expression must be a Presburger formula: variables may only be
--- multiplied by constants, not other variables.  The library
+--
+-- The expression must be a Presburger formula.  In particular, if an
+-- expression involves the product of two non-constant terms, it cannot be
+-- converted to a formula.  The library
 -- internally simplifies expressions to sum-of-products form, so complex
 -- expressions are valid as long as each simplified product has at most
 -- one variable.
+-- The library currently cannot create a set or relation if any
+-- integer expressions contain quantifiers, but restriction could be lifted
+-- in the future.
 
 expToFormula :: [VarHandle]     -- ^ Free variables
              -> BoolExp         -- ^ Expression to convert
@@ -868,11 +876,17 @@ expToFormulaError :: String -> a
 expToFormulaError s = error $ "expToFormula: " ++ s
 
 -- | Substitute a single variable in an expression.
-rename :: Var                   -- ^ variable to replace
-       -> Var                   -- ^ its replacement
-       -> Expr t                -- ^ expression to rename
-       -> Expr t                -- ^ renamed expression
-rename v1 v2 expr = rn expr
+rename  :: Var               -- ^ variable to replace
+        -> Var               -- ^ its replacement
+        -> Exp t             -- ^ expression to rename
+        -> Exp t             -- ^ renamed expression
+rename v1 v2 e = wrapExpr $ renameExpr v1 v2 $ getExpr e
+
+renameExpr :: Var               -- ^ variable to replace
+           -> Var               -- ^ its replacement
+           -> Expr t            -- ^ expression to rename
+           -> Expr t            -- ^ renamed expression
+renameExpr !v1 v2 expr = rn expr
     where
       rn :: forall t. Expr t -> Expr t
       rn (CAUE op lit es) = CAUE op lit $ map rn es
@@ -881,19 +895,26 @@ rename v1 v2 expr = rn expr
       rn expr@(LitE _)    = expr
       rn expr@(VarE v)    | v == v1   = VarE v2
                           | otherwise = expr
-      rn (QuantE q e)     = QuantE q $ rename (bumpIndex v1) (bumpIndex v2) e
+      rn (QuantE q e)     = QuantE q $ renameExpr (bump v1) (bump v2) e
 
       -- Increment a de Bruijn index
-      bumpIndex (Bound n)        = Bound (n+1)
-      bumpIndex v@(Quantified _) = v
+      bump (Bound n)        = Bound (n+1)
+      bump v@(Quantified _) = v
 
 -- | Adjust bound variable bindings by adding an offset to all bound variable
 -- indices beyond a given level.
 adjustBindings :: Int           -- ^ first variable to change
                -> Int           -- ^ Amount to shift by
-               -> Expr t         -- ^ Input expression
-               -> Expr t         -- ^ Adjusted expression
-adjustBindings !firstBound !shift e = adj e
+               -> Exp t         -- ^ Input expression
+               -> Exp t         -- ^ Adjusted expression
+adjustBindings firstBound shift e =
+    wrapExpr $ adjustBindingsExpr firstBound shift $ getExpr e
+
+adjustBindingsExpr :: Int       -- ^ first variable to change
+                   -> Int       -- ^ Amount to shift by
+                   -> Expr t    -- ^ Input expression
+                   -> Expr t    -- ^ Adjusted expression
+adjustBindingsExpr !firstBound !shift e = adj e
     where
       adj :: Expr t -> Expr t
       adj (CAUE op lit es) = CAUE op lit (map adj es)
@@ -907,7 +928,8 @@ adjustBindings !firstBound !shift e = adj e
                                     | otherwise ->
                                         expr
                                 Quantified _ -> expr
-      adj (QuantE q e)     = QuantE q $ adjustBindings (firstBound + 1) shift e
+      adj (QuantE q e)     = QuantE q $
+                             adjustBindingsExpr (firstBound + 1) shift e
 
 -- | True if the expression has no more than the specified number
 -- of free variables.
