@@ -131,25 +131,25 @@ toOmegaSet :: Set -> OmegaSet
 toOmegaSet = setOmegaSet
 
 lowerBoundSatisfiable :: Set -> Bool
-lowerBoundSatisfiable = useSet L.isLowerBoundSatisfiable
+lowerBoundSatisfiable = useSet L.lowerBoundSatisfiable
 
 upperBoundSatisfiable :: Set -> Bool
-upperBoundSatisfiable = useSet L.isUpperBoundSatisfiable
+upperBoundSatisfiable = useSet L.upperBoundSatisfiable
 
 obviousTautology :: Set -> Bool
-obviousTautology = useSet L.isObviousTautology
+obviousTautology = useSet L.obviousTautology
 
 definiteTautology :: Set -> Bool
-definiteTautology = useSet L.isDefiniteTautology
+definiteTautology = useSet L.definiteTautology
 
 exact :: Set -> Bool
-exact = useSet L.isExact
+exact = useSet L.exact
 
 inexact :: Set -> Bool
-inexact = useSet L.isInexact
+inexact = useSet L.inexact
 
 unknown :: Set -> Bool
-unknown = useSet L.isUnknown
+unknown = useSet L.unknown
 
 -- | Intersection of two sets.
 -- The sets must have the same dimension

@@ -207,25 +207,25 @@ range :: Rel -> Set.Set
 range r = useRel (\ptr -> Set.fromOmegaSet =<< L.range ptr) r
 
 lowerBoundSatisfiable :: Rel -> Bool
-lowerBoundSatisfiable = useRel L.isLowerBoundSatisfiable
+lowerBoundSatisfiable = useRel L.lowerBoundSatisfiable
 
 upperBoundSatisfiable :: Rel -> Bool
-upperBoundSatisfiable = useRel L.isUpperBoundSatisfiable
+upperBoundSatisfiable = useRel L.upperBoundSatisfiable
 
 obviousTautology :: Rel -> Bool
-obviousTautology = useRel L.isObviousTautology
+obviousTautology = useRel L.obviousTautology
 
 definiteTautology :: Rel -> Bool
-definiteTautology = useRel L.isDefiniteTautology
+definiteTautology = useRel L.definiteTautology
 
 exact :: Rel -> Bool
-exact = useRel L.isExact
+exact = useRel L.exact
 
 inexact :: Rel -> Bool
-inexact = useRel L.isInexact
+inexact = useRel L.inexact
 
 unknown :: Rel -> Bool
-unknown = useRel L.isUnknown
+unknown = useRel L.unknown
 
 -- | Intersection of two relations.
 -- The relations must have the same dimension

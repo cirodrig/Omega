@@ -24,9 +24,9 @@ module Data.Presburger.Omega.LowLevel
      queryDNFSet, queryDNFRelation,
 
      -- * Queries on sets and relations
-     isLowerBoundSatisfiable, isUpperBoundSatisfiable,
-     isObviousTautology, isDefiniteTautology,
-     isExact, isInexact, isUnknown,
+     lowerBoundSatisfiable, upperBoundSatisfiable,
+     obviousTautology, definiteTautology,
+     exact, inexact, unknown,
 
      -- * Creating new sets and relations from old ones
      union, intersection, composition,
@@ -685,34 +685,34 @@ separateRelationDimensions r = do
 
 -- | Determine a lower bound on whether the formula is satisfiable.
 -- The lower bound is based on treating all UNKNOWN constraints as false.
-isLowerBoundSatisfiable :: Presburger a => a -> IO Bool
+lowerBoundSatisfiable :: Presburger a => a -> IO Bool
 
 -- | Determine an upper bound on whether the formula is satisfiable.
 -- The lower bound is based on treating all UNKNOWN constraints as false.
-isUpperBoundSatisfiable :: Presburger a => a -> IO Bool
+upperBoundSatisfiable :: Presburger a => a -> IO Bool
 
 -- | Use simple, fast tests to decide whether the formula is a tautology.
-isObviousTautology      :: Presburger a => a -> IO Bool
+obviousTautology      :: Presburger a => a -> IO Bool
 
 -- | True if the formula is a tautology.
-isDefiniteTautology     :: Presburger a => a -> IO Bool
+definiteTautology     :: Presburger a => a -> IO Bool
 
 -- | True if the formula has no UNKNOWN constraints.
-isExact                 :: Presburger a => a -> IO Bool
+exact                 :: Presburger a => a -> IO Bool
 
 -- | True if the formula has UNKNOWN constraints.
-isInexact               :: Presburger a => a -> IO Bool
+inexact               :: Presburger a => a -> IO Bool
 
 -- | True if the formula is UNKNOWN.
-isUnknown               :: Presburger a => a -> IO Bool
+unknown               :: Presburger a => a -> IO Bool
 
-isLowerBoundSatisfiable rel = withPresburger rel hsw_is_lower_bound_satisfiable
-isUpperBoundSatisfiable rel = withPresburger rel hsw_is_upper_bound_satisfiable
-isObviousTautology rel      = withPresburger rel hsw_is_obvious_tautology
-isDefiniteTautology rel     = withPresburger rel hsw_is_definite_tautology
-isExact rel                 = withPresburger rel hsw_is_exact
-isInexact rel               = withPresburger rel hsw_is_inexact
-isUnknown rel               = withPresburger rel hsw_is_unknown
+lowerBoundSatisfiable rel = withPresburger rel hsw_is_lower_bound_satisfiable
+upperBoundSatisfiable rel = withPresburger rel hsw_is_upper_bound_satisfiable
+obviousTautology rel      = withPresburger rel hsw_is_obvious_tautology
+definiteTautology rel     = withPresburger rel hsw_is_definite_tautology
+exact rel                 = withPresburger rel hsw_is_exact
+inexact rel               = withPresburger rel hsw_is_inexact
+unknown rel               = withPresburger rel hsw_is_unknown
 
 -------------------------------------------------------------------------------
 -- Creating new sets and relations from old ones
