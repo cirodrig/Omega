@@ -1,7 +1,8 @@
 
 -- | This module provides a low-level interface for creating,
 -- manipulating, and querying Presburger arithmetic formulae.
--- It uses the C++ Omega library.
+-- The real work is done by the C++ Omega library
+-- (<http://github.com/davewathaverford/the-omega-project>).
 --
 -- The main data types are 'OmegaSet' and 'OmegaRel', which use a formula
 -- to define a set or relation, respectively, on integer-valued points in

@@ -5,7 +5,7 @@ Build-Type:		Custom
 License:		OtherLicense
 License-File:		LICENSE
 Author:			Christopher Rodrigues
-Maintainer:		cirodig@illinois.edu
+Maintainer:		cirodrig@illinois.edu
 Stability:		Alpha
 Synopsis:		Operations on Presburger arithmetic formulae
 Description:
@@ -15,7 +15,7 @@ Description:
         in "Data.Presburger.Omega.Set" and "Data.Presburger.Omega.Rel".
 
         The Omega library
-        (http:\/\/github.com\/davewathaverford\/the-omega-project) must
+        (<http://github.com/davewathaverford/the-omega-project>) must
         be installed to build this package.
 Category:		Data
 Extra-Source-Files:
