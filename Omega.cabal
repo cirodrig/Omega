@@ -7,17 +7,23 @@ License-File:		LICENSE
 Author:			Christopher Rodrigues
 Maintainer:		cirodig@illinois.edu
 Stability:		Alpha
-Synopsis:		A library for manipulating Presburger arithmetic formulae
+Synopsis:		Operations on Presburger arithmetic formulae
 Description:
-        This package provides tools for performing logical
-        operations on sets and relations whose members can be represented
-        compactly as a Presburger arithmetic formula.
+        This package provides tools for manipulating sets and relations
+        whose members can be represented compactly as a Presburger
+        arithmetic formula.  The primary interface routines can be found
+        in "Data.Presburger.Omega.Set" and "Data.Presburger.Omega.Rel".
 
-        The Omega library must be installed to build this package.  It can
-        be downloaded from
-        http:\/\/github.com\/davewathaverford\/the-omega-project using git.
+        The Omega library
+        (http:\/\/github.com\/davewathaverford\/the-omega-project) must
+        be installed to build this package.
 Category:		Data
-Extra-Source-Files:	configure.ac Makefile.in src/C_omega.h src/C_omega.cc
+Extra-Source-Files:
+	README
+	configure.ac
+	Makefile.in
+	src/C_omega.h
+	src/C_omega.cc
 Extra-Tmp-Files:	build/C_omega.o
 
 Library
