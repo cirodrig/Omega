@@ -109,190 +109,190 @@ class Logical f where
     finalize   :: f -> IO ()
 
 instance Logical C_Relation where
-    add_and    = relation_add_and
-    add_or     = relation_add_or
-    add_not    = relation_add_not
-    add_forall = relation_add_forall
-    add_exists = relation_add_exists
+    add_and    = hsw_relation_add_and
+    add_or     = hsw_relation_add_or
+    add_not    = hsw_relation_add_not
+    add_forall = hsw_relation_add_forall
+    add_exists = hsw_relation_add_exists
     -- We take advantage of the fact that C_And is a subclass of C_Form
     -- here, and simply cast the pointer.
-    convert_to_and r = liftM castPtr $ relation_add_and r
-    finalize   = relation_finalize
+    convert_to_and r = liftM castPtr $ hsw_relation_add_and r
+    finalize   = hsw_relation_finalize
 
 instance Logical C_Form where
-    add_and    = formula_add_and
-    add_or     = formula_add_or
-    add_not    = formula_add_not
-    add_forall = formula_add_forall
-    add_exists = formula_add_exists
-    convert_to_and = formula_to_and
-    finalize   = formula_finalize
+    add_and    = hsw_formula_add_and
+    add_or     = hsw_formula_add_or
+    add_not    = hsw_formula_add_not
+    add_forall = hsw_formula_add_forall
+    add_exists = hsw_formula_add_exists
+    convert_to_and = hsw_formula_to_and
+    finalize   = hsw_formula_finalize
 
 -- C_And is a subclass of C_Form and implements all its methods.
 -- Consequently, we simply cast to C_Form
 instance Logical C_And where
-    add_and    = formula_add_and . castPtr
-    add_or     = formula_add_or . castPtr
-    add_not    = formula_add_not . castPtr
-    add_forall = formula_add_forall . castPtr
-    add_exists = formula_add_exists . castPtr
+    add_and    = hsw_formula_add_and . castPtr
+    add_or     = hsw_formula_add_or . castPtr
+    add_not    = hsw_formula_add_not . castPtr
+    add_forall = hsw_formula_add_forall . castPtr
+    add_exists = hsw_formula_add_exists . castPtr
     convert_to_and = return
-    finalize   = formula_finalize . castPtr
+    finalize   = hsw_formula_finalize . castPtr
 
 -- C_Quantifier is a subclass of C_Form and implements all its methods.
 -- Consequently, we simply cast to C_Form
 instance Logical C_Quantifier where
-    add_and    = formula_add_and . castPtr
-    add_or     = formula_add_or . castPtr
-    add_not    = formula_add_not . castPtr
-    add_forall = formula_add_forall . castPtr
-    add_exists = formula_add_exists . castPtr
-    convert_to_and = formula_to_and . castPtr
-    finalize   = formula_finalize . castPtr
+    add_and    = hsw_formula_add_and . castPtr
+    add_or     = hsw_formula_add_or . castPtr
+    add_not    = hsw_formula_add_not . castPtr
+    add_forall = hsw_formula_add_forall . castPtr
+    add_exists = hsw_formula_add_exists . castPtr
+    convert_to_and = hsw_formula_to_and . castPtr
+    finalize   = hsw_formula_finalize . castPtr
 
 -- Used for freeing data that was allocated in C
 foreign import ccall safe free :: Ptr a -> IO ()
 
-foreign import ccall safe new_relation
+foreign import ccall safe hsw_new_relation
     :: CInt -> CInt -> IO C_Relation
-foreign import ccall safe new_set
+foreign import ccall safe hsw_new_set
     :: CInt -> IO C_Relation
-foreign import ccall safe free_relation
+foreign import ccall safe hsw_free_relation
     :: C_Relation -> IO ()
-foreign import ccall "&free_relation" ptr_to_free_relation
+foreign import ccall "&hsw_free_relation" ptr_to_free_relation
     :: FunPtr (C_Relation -> IO ())
-foreign import ccall safe relation_show
+foreign import ccall safe hsw_relation_show
     :: C_Relation -> IO CString
-foreign import ccall safe num_input_vars
+foreign import ccall safe hsw_num_input_vars
     :: C_Relation -> IO CInt
-foreign import ccall safe num_output_vars
+foreign import ccall safe hsw_num_output_vars
     :: C_Relation -> IO CInt
-foreign import ccall safe num_set_vars
+foreign import ccall safe hsw_num_set_vars
     :: C_Relation -> IO CInt
-foreign import ccall safe input_var
+foreign import ccall safe hsw_input_var
     :: C_Relation -> CInt -> IO C_Var
-foreign import ccall safe output_var
+foreign import ccall safe hsw_output_var
     :: C_Relation -> CInt -> IO C_Var
-foreign import ccall safe set_var
+foreign import ccall safe hsw_set_var
     :: C_Relation -> CInt -> IO C_Var
-foreign import ccall safe is_lower_bound_satisfiable
+foreign import ccall safe hsw_is_lower_bound_satisfiable
     :: C_Relation -> IO Bool
-foreign import ccall safe is_upper_bound_satisfiable
+foreign import ccall safe hsw_is_upper_bound_satisfiable
     :: C_Relation -> IO Bool
-foreign import ccall safe is_obvious_tautology
+foreign import ccall safe hsw_is_obvious_tautology
     :: C_Relation -> IO Bool
-foreign import ccall safe is_definite_tautology
+foreign import ccall safe hsw_is_definite_tautology
     :: C_Relation -> IO Bool
-foreign import ccall safe is_exact
+foreign import ccall safe hsw_is_exact
     :: C_Relation -> IO Bool
-foreign import ccall safe is_inexact
+foreign import ccall safe hsw_is_inexact
     :: C_Relation -> IO Bool
-foreign import ccall safe is_unknown
+foreign import ccall safe hsw_is_unknown
     :: C_Relation -> IO Bool
-foreign import ccall safe relation_union
+foreign import ccall safe hsw_union
     :: C_Relation -> C_Relation -> IO C_Relation
-foreign import ccall safe relation_intersection
+foreign import ccall safe hsw_intersection
     :: C_Relation -> C_Relation -> IO C_Relation
-foreign import ccall safe relation_composition
+foreign import ccall safe hsw_composition
     :: C_Relation -> C_Relation -> IO C_Relation
-foreign import ccall safe relation_restrict_domain
+foreign import ccall safe hsw_restrict_domain
     :: C_Relation -> C_Relation -> IO C_Relation
-foreign import ccall safe relation_restrict_range
+foreign import ccall safe hsw_restrict_range
     :: C_Relation -> C_Relation -> IO C_Relation
-foreign import ccall safe relation_domain
+foreign import ccall safe hsw_domain
     :: C_Relation -> IO C_Relation
-foreign import ccall safe relation_range
+foreign import ccall safe hsw_range
     :: C_Relation -> IO C_Relation
 
-foreign import ccall safe relation_add_and
+foreign import ccall safe hsw_relation_add_and
     :: C_Relation -> IO C_Form
-foreign import ccall safe relation_add_or
+foreign import ccall safe hsw_relation_add_or
     :: C_Relation -> IO C_Form
-foreign import ccall safe relation_add_not
+foreign import ccall safe hsw_relation_add_not
     :: C_Relation -> IO C_Form
-foreign import ccall safe relation_add_forall
+foreign import ccall safe hsw_relation_add_forall
     :: C_Relation -> IO C_Quantifier
-foreign import ccall safe relation_add_exists
+foreign import ccall safe hsw_relation_add_exists
     :: C_Relation -> IO C_Quantifier
-foreign import ccall safe relation_finalize
+foreign import ccall safe hsw_relation_finalize
     :: C_Relation -> IO ()
 
 -- These functions take formula pointer arguments
-foreign import ccall safe formula_add_and
+foreign import ccall safe hsw_formula_add_and
     :: C_Form -> IO C_Form
-foreign import ccall safe formula_add_or
+foreign import ccall safe hsw_formula_add_or
     :: C_Form -> IO C_Form
-foreign import ccall safe formula_add_not
+foreign import ccall safe hsw_formula_add_not
     :: C_Form -> IO C_Form
-foreign import ccall safe formula_add_forall
+foreign import ccall safe hsw_formula_add_forall
     :: C_Form -> IO C_Quantifier
-foreign import ccall safe formula_add_exists
+foreign import ccall safe hsw_formula_add_exists
     :: C_Form -> IO C_Quantifier
-foreign import ccall safe formula_finalize
+foreign import ccall safe hsw_formula_finalize
     :: C_Form -> IO ()
 
-foreign import ccall safe declaration_declare
+foreign import ccall safe hsw_declaration_declare
     :: C_Quantifier -> IO C_Var
 
 -- If the argument is a C_And, the argument is returned;
 -- otherwise, add_and is called
-foreign import ccall safe formula_to_and
+foreign import ccall safe hsw_formula_to_and
     :: C_Form -> IO C_And
 
-foreign import ccall safe add_constraint
+foreign import ccall safe hsw_add_constraint
     :: C_And -> Bool -> CInt -> Ptr CInt -> Ptr C_Var -> CInt -> IO ()
 
 foreign import ccall safe separate_relation_dimensions
     :: Ptr C_Relation -> C_Relation -> IO ()
 
 -- Look at the internal representation of a set
-foreign import ccall safe query_dnf
+foreign import ccall safe hsw_query_dnf
     :: C_Relation -> IO C_DNF_Iterator
-foreign import ccall safe dnf_iterator_next
+foreign import ccall safe hsw_dnf_iterator_next
     :: C_DNF_Iterator -> IO C_Conjunct
-foreign import ccall safe dnf_iterator_free
+foreign import ccall safe hsw_dnf_iterator_free
     :: C_DNF_Iterator -> IO ()
 
 -- For inspecting Omega data structures
-foreign import ccall safe get_conjunct_variables
+foreign import ccall safe hsw_get_conjunct_variables
     :: C_Conjunct -> IO (C_Tuple_Iterator C_Var)
-foreign import ccall safe tuple_iterator_next
+foreign import ccall safe hsw_tuple_iterator_next
     :: (C_Tuple_Iterator (Ptr a)) -> IO (Ptr a)
-foreign import ccall safe tuple_iterator_free
+foreign import ccall safe hsw_tuple_iterator_free
     :: (C_Tuple_Iterator a) -> IO ()
 
-foreign import ccall safe get_eqs
+foreign import ccall safe hsw_get_eqs
     :: C_Conjunct -> IO C_EQ_Iterator
-foreign import ccall safe eqs_next
+foreign import ccall safe hsw_eqs_next
     :: C_EQ_Iterator -> IO C_EQ_Handle
-foreign import ccall safe eqs_free
+foreign import ccall safe hsw_eqs_free
     :: C_EQ_Iterator -> IO ()
-foreign import ccall safe eq_handle_free
+foreign import ccall safe hsw_eq_handle_free
     :: C_EQ_Handle -> IO ()
 
-foreign import ccall safe get_geqs
+foreign import ccall safe hsw_get_geqs
     :: C_Conjunct -> IO C_GEQ_Iterator
-foreign import ccall safe geqs_next
+foreign import ccall safe hsw_geqs_next
     :: C_GEQ_Iterator -> IO C_GEQ_Handle
-foreign import ccall safe geqs_free
+foreign import ccall safe hsw_geqs_free
     :: C_GEQ_Iterator -> IO ()
-foreign import ccall safe geq_handle_free
+foreign import ccall safe hsw_geq_handle_free
     :: C_GEQ_Handle -> IO ()
 
-foreign import ccall safe constraint_get_const
+foreign import ccall safe hsw_constraint_get_const
     :: Ptr a -> IO #{type coefficient_t}
-foreign import ccall safe constraint_get_coefficients
+foreign import ccall safe hsw_constraint_get_coefficients
     :: Ptr a -> IO C_Constr_Vars_Iter
-foreign import ccall safe constr_vars_next
+foreign import ccall safe hsw_constr_vars_next
     :: Ptr Coefficient -> C_Constr_Vars_Iter -> IO Bool 
-foreign import ccall safe constr_vars_free
+foreign import ccall safe hsw_constr_vars_free
     :: C_Constr_Vars_Iter -> IO ()
 
 
 -- For debugging
-foreign import ccall safe debug_print_eq
+foreign import ccall safe hsw_debug_print_eq
     :: C_EQ_Handle -> IO ()
-foreign import ccall safe debug_print_geq
+foreign import ccall safe hsw_debug_print_geq
     :: C_GEQ_Handle -> IO ()
 
 -------------------------------------------------------------------------------
@@ -302,16 +302,16 @@ foreign import ccall safe debug_print_geq
 class Iterator i a | i -> a where next :: i -> IO a
 
 instance Iterator C_DNF_Iterator C_Conjunct where
-    next = dnf_iterator_next
+    next = hsw_dnf_iterator_next
 
 instance Iterator (C_Tuple_Iterator (Ptr a)) (Ptr a) where
-    next = tuple_iterator_next
+    next = hsw_tuple_iterator_next
 
 instance Iterator C_EQ_Iterator C_EQ_Handle where
-    next = eqs_next
+    next = hsw_eqs_next
 
 instance Iterator C_GEQ_Iterator C_GEQ_Handle where
-    next = geqs_next
+    next = hsw_geqs_next
 
 -- Imperatively accumulate over the contents of the iterator
 foreach :: Iterator i (Ptr b) => (a -> Ptr b -> IO a) -> a -> i -> IO a
@@ -325,51 +325,51 @@ foreach f x iter = visit x
 -- Iterate through each conjunct in a DNF clause
 iterateDNF :: (a -> C_Conjunct -> IO a) -> a -> C_Relation -> IO a
 iterateDNF f x rel = do
-  iter <- query_dnf rel
+  iter <- hsw_query_dnf rel
   x' <- foreach f x iter
-  dnf_iterator_free iter
+  hsw_dnf_iterator_free iter
   return x'
 
 -- Iterate through the variables in a conjunct
 iterateConjVars :: (a -> C_Var -> IO a) -> a -> C_Conjunct -> IO a
 iterateConjVars f x conj = do
-  iter <- get_conjunct_variables conj
+  iter <- hsw_get_conjunct_variables conj
   x' <- foreach f x iter
-  tuple_iterator_free iter
+  hsw_tuple_iterator_free iter
   return x'
 
 -- Iterate through the equality constraints in a conjunct
 iterateEqs :: (a -> C_EQ_Handle -> IO a) -> a -> C_Conjunct -> IO a
 iterateEqs f x conj = do
-  iter <- get_eqs conj
+  iter <- hsw_get_eqs conj
   x' <- foreach wrapped_f x iter
-  eqs_free iter
+  hsw_eqs_free iter
   return x'
     where
       -- This wrapper just makes sure the handle is freed after use
       wrapped_f x eqHdl = do 
         x' <- f x eqHdl
-        eq_handle_free eqHdl
+        hsw_eq_handle_free eqHdl
         return x'
 
 -- Iterate through the inequality constraints in a conjunct
 iterateGeqs :: (a -> C_GEQ_Handle -> IO a) -> a -> C_Conjunct -> IO a
 iterateGeqs f x conj = do
-  iter <- get_geqs conj
+  iter <- hsw_get_geqs conj
   x' <- foreach wrapped_f x iter
-  geqs_free iter
+  hsw_geqs_free iter
   return x'
     where
       -- This wrapper just makes sure the handle is freed after use
       wrapped_f x geqHdl = do 
         x' <- f x geqHdl
-        geq_handle_free geqHdl
+        hsw_geq_handle_free geqHdl
         return x'
 
 -- Read the coefficients from a Constraint
 peekConstraintVars :: Constraint a => Ptr a -> IO [Coefficient]
 peekConstraintVars cst = do
-  iter <- constraint_get_coefficients cst
+  iter <- hsw_constraint_get_coefficients cst
 
   -- Allocate temporary storage on the C side for some data
   c_var_info <- ForeignAlloc.malloc
@@ -379,14 +379,14 @@ peekConstraintVars cst = do
 
   -- Free the temporary storage and the iterator
   ForeignAlloc.free c_var_info
-  constr_vars_free iter
+  hsw_constr_vars_free iter
 
   return coeffs
     where
       getCoefficients iter c_var_info coeffs = do
 
         -- Read one coefficient
-        ok <- constr_vars_next c_var_info iter
+        ok <- hsw_constr_vars_next c_var_info iter
 
         -- If it returned false, we're done
         if not ok then return coeffs else do
@@ -399,13 +399,13 @@ peekConstraintVars cst = do
 peekInputVars, peekOutputVars, peekSetVars
     :: CInt -> C_Relation -> IO [VarHandle]
 peekInputVars n rel =
-    mapM (liftM VarHandle . input_var rel) [n, n - 1 .. 1]
+    mapM (liftM VarHandle . hsw_input_var rel) [n, n - 1 .. 1]
 
 peekOutputVars n rel =
-    mapM (liftM VarHandle . output_var rel) [n, n - 1 .. 1]
+    mapM (liftM VarHandle . hsw_output_var rel) [n, n - 1 .. 1]
 
 peekSetVars n rel =
-    mapM (liftM VarHandle . set_var rel) [n, n - 1 .. 1]
+    mapM (liftM VarHandle . hsw_set_var rel) [n, n - 1 .. 1]
 
 -- Helper function to read a constraint.
 queryConstraint :: Constraint c =>
@@ -415,7 +415,7 @@ queryConstraint :: Constraint c =>
                 -> IO a
 queryConstraint f acc eq = do
   coefficients <- peekConstraintVars eq
-  constant <- constraint_get_const eq
+  constant <- hsw_constraint_get_const eq
   return $ f coefficients (fromIntegral constant) acc
 
 -------------------------------------------------------------------------------
@@ -451,8 +451,8 @@ data OmegaSet = OmegaSet { sPtr :: {-# UNPACK #-} !(ForeignPtr Relation)
 
 instance Show OmegaSet where
     show rel = unsafePerformIO $ withPresburger rel $ \ptr -> do
-        -- Call relation_show to get a C string, then convert to String
-        cStr <- relation_show ptr
+        -- Call hsw_relation_show to get a C string, then convert to String
+        cStr <- hsw_relation_show ptr
         str  <- peekCString cStr
         free cStr
         return str
@@ -464,7 +464,7 @@ instance Presburger OmegaSet where
       length (sDom s1) == length (sDom s2)
 
     fromPtr ptr = do
-      numVars <- num_set_vars ptr
+      numVars <- hsw_num_set_vars ptr
       varIDs <- peekSetVars numVars ptr
       wrapOmegaSet ptr varIDs
 
@@ -485,7 +485,7 @@ newOmegaSet :: Int              -- ^ Dimensionality of the space that the set
             -> ([VarHandle] -> Formula) -- ^ Set members
             -> IO OmegaSet
 newOmegaSet numVars init = do
-  rel <- new_set (fromIntegral numVars)
+  rel <- hsw_new_set (fromIntegral numVars)
 
   -- Look up the ID for each variable in the tuple.  Variables are ordered
   -- from last to first because the last variable is "innermost," has
@@ -556,8 +556,8 @@ data OmegaRel = OmegaRel { rPtr :: {-# UNPACK #-} !(ForeignPtr Relation)
 
 instance Show OmegaRel where
     show rel = unsafePerformIO $ withPresburger rel $ \ptr -> do
-        -- Call relation_show to get a C string, then convert to String
-        cStr <- relation_show ptr
+        -- Call hsw_relation_show to get a C string, then convert to String
+        cStr <- hsw_relation_show ptr
         str  <- peekCString cStr
         free cStr
         return str
@@ -570,10 +570,10 @@ instance Presburger OmegaRel where
       length (rRng r1) == length (rRng r2)
 
     fromPtr ptr = do
-      numOutputs <- num_output_vars ptr
+      numOutputs <- hsw_num_output_vars ptr
       outputVarIDs <- peekOutputVars numOutputs ptr
 
-      numInputs <- num_input_vars ptr
+      numInputs <- hsw_num_input_vars ptr
       inputVarIDs <- peekInputVars numInputs ptr
 
       wrapOmegaRel ptr inputVarIDs outputVarIDs
@@ -596,7 +596,7 @@ newOmegaRel :: Int              -- ^ Dimensionality of the domain
                                 -- ^ The relation
             -> IO OmegaRel
 newOmegaRel numInputs numOutputs init = do
-  rel <- new_relation (fromIntegral numInputs) (fromIntegral numOutputs)
+  rel <- hsw_new_relation (fromIntegral numInputs) (fromIntegral numOutputs)
 
   -- Look up the IDs for the input and output variables.
   outputVarIds <- peekOutputVars (fromIntegral numOutputs) rel
@@ -706,13 +706,13 @@ isInexact               :: Presburger a => a -> IO Bool
 -- | True if the formula is UNKNOWN.
 isUnknown               :: Presburger a => a -> IO Bool
 
-isLowerBoundSatisfiable rel = withPresburger rel is_lower_bound_satisfiable
-isUpperBoundSatisfiable rel = withPresburger rel is_upper_bound_satisfiable
-isObviousTautology rel      = withPresburger rel is_obvious_tautology
-isDefiniteTautology rel     = withPresburger rel is_definite_tautology
-isExact rel                 = withPresburger rel is_exact
-isInexact rel               = withPresburger rel is_inexact
-isUnknown rel               = withPresburger rel is_unknown
+isLowerBoundSatisfiable rel = withPresburger rel hsw_is_lower_bound_satisfiable
+isUpperBoundSatisfiable rel = withPresburger rel hsw_is_upper_bound_satisfiable
+isObviousTautology rel      = withPresburger rel hsw_is_obvious_tautology
+isDefiniteTautology rel     = withPresburger rel hsw_is_definite_tautology
+isExact rel                 = withPresburger rel hsw_is_exact
+isInexact rel               = withPresburger rel hsw_is_inexact
+isUnknown rel               = withPresburger rel hsw_is_unknown
 
 -------------------------------------------------------------------------------
 -- Creating new sets and relations from old ones
@@ -722,7 +722,7 @@ isUnknown rel               = withPresburger rel is_unknown
 union :: Presburger a => a -> a -> IO a
 union rel1 rel2
     | sameArity rel1 rel2 =
-          fromPtr =<< withPresburger2 rel1 rel2 relation_union 
+          fromPtr =<< withPresburger2 rel1 rel2 hsw_union 
     | otherwise = error "union: arguments have different arities"
 
 -- | Compute the intersection of two sets or relations.  The sets or relations
@@ -730,7 +730,7 @@ union rel1 rel2
 intersection :: Presburger a => a -> a -> IO a
 intersection rel1 rel2
     | sameArity rel1 rel2 =
-          fromPtr =<< withPresburger2 rel1 rel2 relation_intersection
+          fromPtr =<< withPresburger2 rel1 rel2 hsw_intersection
     | otherwise = error "intersection: arguments have different arities"
 
 -- | Compute the composition of two sets or relations.  The
@@ -738,28 +738,28 @@ intersection rel1 rel2
 composition :: OmegaRel -> OmegaRel -> IO OmegaRel
 composition rel1 rel2
     | length (rDom rel1) == length (rRng rel2) =
-          fromPtr =<< withPresburger2 rel1 rel2 relation_composition
+          fromPtr =<< withPresburger2 rel1 rel2 hsw_composition
     | otherwise = error "composition: argument arities do not agree"
 
 restrictDomain :: OmegaRel -> OmegaSet -> IO OmegaRel
 restrictDomain rel1 set
     | length (rDom rel1) == length (sDom set) =
-          fromPtr =<< withPresburger2 rel1 set relation_restrict_domain
+          fromPtr =<< withPresburger2 rel1 set hsw_restrict_domain
     | otherwise = error "restrictDomain: argument arities do not agree"
 
 restrictRange :: OmegaRel -> OmegaSet -> IO OmegaRel
 restrictRange rel1 set
     | length (rDom rel1) == length (sDom set) =
-          fromPtr =<< withPresburger2 rel1 set relation_restrict_range
+          fromPtr =<< withPresburger2 rel1 set hsw_restrict_range
     | otherwise = error "restrictDomain: argument arities do not agree"
 
 -- | Get the domain of a relation.
 domain :: OmegaRel -> IO OmegaSet
-domain rel = fromPtr =<< withPresburger rel relation_domain
+domain rel = fromPtr =<< withPresburger rel hsw_domain
 
 -- | Get the range of a relation.
 range :: OmegaRel -> IO OmegaSet
-range rel = fromPtr =<< withPresburger rel relation_range
+range rel = fromPtr =<< withPresburger rel hsw_range
 
 -------------------------------------------------------------------------------
 -- Formulae
@@ -795,7 +795,7 @@ negation formulaDef = FD $ \f -> do
 qForall :: (VarHandle -> Formula) -> Formula
 qForall makeBody = FD $ \f -> do
   newFormula <- add_forall f
-  localVar <- declaration_declare newFormula
+  localVar <- hsw_declaration_declare newFormula
   runFD (makeBody (VarHandle localVar)) newFormula
   finalize newFormula
 
@@ -804,7 +804,7 @@ qForall makeBody = FD $ \f -> do
 qExists :: (VarHandle -> Formula) -> Formula
 qExists makeBody = FD $ \f -> do
   newFormula <- add_exists f
-  localVar <- declaration_declare newFormula
+  localVar <- hsw_declaration_declare newFormula
   runFD (makeBody (VarHandle localVar)) newFormula
   finalize newFormula
 
@@ -821,7 +821,7 @@ addConstraint kind terms constant formula = do
   withArray coefficients $ \coeffPtr ->
       withArray variables $ \varPtr ->
           -- then, call code to set the constraint
-          add_constraint formula kind numTermsCInt coeffPtr varPtr constantCInt
+          hsw_add_constraint formula kind numTermsCInt coeffPtr varPtr constantCInt
 
 -- | Construct an inequation of the form @a*x + b*y + ... + d >= 0@.
 inequality :: [Coefficient] -> Int -> Formula
