@@ -67,8 +67,6 @@ void hsw_add_constraint(struct F_And *formula,
 		    struct Var_Decl **vars,
 		    int constant);
 
-void separate_relation_dimensions(struct Relation **rel_out, struct Relation *rel);
-
 struct DNF_Iterator *hsw_query_dnf(struct Relation *rel);
 struct Conjunct *hsw_dnf_iterator_next(struct DNF_Iterator *iter);
 void hsw_dnf_iterator_free(struct DNF_Iterator *iter);

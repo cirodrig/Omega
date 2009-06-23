@@ -265,52 +265,6 @@ void hsw_add_constraint(F_And *formula,
   free(hdl);
 }
 
-/* Helper for the following routine */
-static void
-write_dimension_to_output(Relation **out, Relation &rel)
-{
-    /* Approximate so that existential vars are eliminated */
-    Approximate(rel);
-
-    /* Save into the output */
-    *out = new Relation(copy(rel));
-    (*out)->finalize();
-}
-
-/* For each output variable in rel, produce a relation whose constraints
- * mention only that output variable and input variables.
- */
-extern "C"
-void
-separate_relation_dimensions(Relation **rel_out, Relation *rel)
-{
-  int n_outputs = rel->n_out();
-
-  /* We keep a copy of rel in which the first few output variables are
-   * projected out.  In iteration i, variables 0 .. i-1 are projected out
-   * and variables i .. n_outputs-1 are still in effect.
-   */
-  Relation projected = copy(*rel);
-
-  /* For all but the last output variable */
-  for (int i = 0; i < n_outputs-1; i++) {
-    /* Make a copy of 'projected' which wil be the output relation */
-    Relation rel_i = copy(projected);
-
-    /* Project out all variables i+1 .. n_outputs-1 */
-    for (int j = i + 1; j < n_outputs - 1; j++)
-      Project (rel_i, j+1, Output_Var);
-
-    write_dimension_to_output(&rel_out[i], rel_i);
-
-    /* Project another variable */
-    Project(projected, i+1, Output_Var);
-  }
-
-  /* Last output */
-  write_dimension_to_output(&rel_out[n_outputs-1], projected);
-} 
-
 /* These are all for inspecting a DNF formula */
 
 extern "C"
