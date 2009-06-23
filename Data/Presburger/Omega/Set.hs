@@ -9,10 +9,14 @@
 
 module Data.Presburger.Omega.Set
     (Set,
+
      -- * Building sets
      set, fromOmegaSet,
+
      -- * Operations on sets
      toOmegaSet,
+
+     -- ** Inspecting
      dimension, predicate,
      lowerBoundSatisfiable,
      upperBoundSatisfiable,
@@ -21,10 +25,17 @@ module Data.Presburger.Omega.Set
      exact,
      inexact,
      unknown,
+
+     -- ** Bounds
      upperBound, lowerBound,
-     union, intersection, difference,
+
+     -- ** Binary operations
+     equal, union, intersection, difference,
      Effort(..),
-     gist
+     gist,
+
+     -- ** Unary operations
+     complement
     )
 where
 
@@ -110,8 +121,8 @@ omegaSetToSet dim oset = return $
 useSet :: (OmegaSet -> IO a) -> Set -> a
 useSet f s = unsafePerformIO $ f (setOmegaSet s)
 
-useSetSet :: Int -> (OmegaSet -> IO OmegaSet) -> Set -> Set
-useSetSet dim f s = unsafePerformIO $ do
+useSetSet :: (OmegaSet -> IO OmegaSet) -> Int -> Set -> Set
+useSetSet f dim s = unsafePerformIO $ do
   omegaSetToSet dim =<< f (setOmegaSet s)
 
 useSet2 :: (OmegaSet -> OmegaSet -> IO a) -> Set -> Set -> a
@@ -138,10 +149,10 @@ toOmegaSet :: Set -> OmegaSet
 toOmegaSet = setOmegaSet
 
 upperBound :: Set -> Set
-upperBound s = useSetSet (setDim s) L.upperBound s
+upperBound s = useSetSet L.upperBound (setDim s) s
 
 lowerBound :: Set -> Set
-lowerBound s = useSetSet (setDim s) L.lowerBound s
+lowerBound s = useSetSet L.lowerBound (setDim s) s
 
 lowerBoundSatisfiable :: Set -> Bool
 lowerBoundSatisfiable = useSet L.lowerBoundSatisfiable
@@ -163,6 +174,18 @@ inexact = useSet L.inexact
 
 unknown :: Set -> Bool
 unknown = useSet L.unknown
+
+-- | Test whether two sets are equal.
+-- This will give a precise answer only if both set are 'exact'.
+-- The answer is unpredictable otherwise.
+
+-- To test whether two sets are equal, complement one of them
+-- and then apply satisfiability/tautology tests.
+equal :: Set -> Set -> Bool
+equal r1 r2 =
+    let r2' = complement r2
+    in definiteTautology (r1 `union` r2') &&
+       not (lowerBoundSatisfiable $ r1 `intersection` r2)
 
 -- | Union of two sets.
 -- The sets must have the same dimension
@@ -187,3 +210,6 @@ difference s1 s2 = useSet2Set L.difference (setDim s1) s1 s2
 -- (@dimension s1 == dimension s2@), or an error will be raised.
 gist :: Effort -> Set -> Set -> Set
 gist effort s1 s2 = useSet2Set (L.gist effort) (setDim s1) s1 s2
+
+complement :: Set -> Set
+complement s = useSetSet L.complement (setDim s) s

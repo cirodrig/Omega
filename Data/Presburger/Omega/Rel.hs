@@ -11,11 +11,13 @@ module Data.Presburger.Omega.Rel
     (Rel,
      -- * Building relations
      rel, functionalRel, fromOmegaRel,
+
      -- * Operations on relations
      toOmegaRel,
+
+     -- ** Inspecting
      inputDimension, outputDimension,
-     domain, range, predicate,
-     upperBound, lowerBound,
+     predicate,
      lowerBoundSatisfiable,
      upperBoundSatisfiable,
      obviousTautology,
@@ -23,11 +25,23 @@ module Data.Presburger.Omega.Rel
      exact,
      inexact,
      unknown,
+
+     -- ** Bounds
+     upperBound, lowerBound,
+
+     -- ** Binary operations
+     equal,
      union, intersection, composition, join,
      restrictDomain, restrictRange,
      difference, crossProduct,
      Effort(..),
-     gist
+     gist,
+
+     -- ** Unary operations
+     transitiveClosure,
+     domain, range,
+     inverse,
+     complement
     )
 where
 
@@ -180,8 +194,8 @@ omegaRelToRel inpDim outDim orel = return $
 useRel :: (OmegaRel -> IO a) -> Rel -> a
 useRel f r = unsafePerformIO $ f $ relOmegaRel r
 
-useRelRel :: Int -> Int -> (OmegaRel -> IO OmegaRel) -> Rel -> Rel
-useRelRel inpDim outDim f r = unsafePerformIO $ do
+useRelRel :: (OmegaRel -> IO OmegaRel) -> Int -> Int -> Rel -> Rel
+useRelRel f inpDim outDim r = unsafePerformIO $ do
   omegaRelToRel inpDim outDim =<< f (relOmegaRel r)
 
 useRel2 :: (OmegaRel -> OmegaRel -> IO a) -> Rel -> Rel -> a
@@ -236,10 +250,22 @@ unknown :: Rel -> Bool
 unknown = useRel L.unknown
 
 upperBound :: Rel -> Rel
-upperBound r = useRelRel (relInpDim r) (relOutDim r) L.upperBound r
+upperBound r = useRelRel L.upperBound (relInpDim r) (relOutDim r) r
 
 lowerBound :: Rel -> Rel
-lowerBound r = useRelRel (relInpDim r) (relOutDim r) L.lowerBound r
+lowerBound r = useRelRel L.lowerBound (relInpDim r) (relOutDim r) r
+
+-- | Test whether two relations are equal.
+-- This will give a precise answer only if both relations are 'exact'.
+-- The answer is unpredictable otherwise.
+
+-- To test whether two relations are equal, complement one of them
+-- and then apply satisfiability/tautology tests.
+equal :: Rel -> Rel -> Bool
+equal r1 r2 =
+    let r2' = complement r2
+    in definiteTautology (r1 `union` r2') &&
+       not (lowerBoundSatisfiable $ r1 `intersection` r2)
 
 -- | Union of two relations.
 -- The relations must have the same dimension
@@ -299,3 +325,13 @@ crossProduct s1 s2 = unsafePerformIO $
 gist :: Effort -> Rel -> Rel -> Rel
 gist effort r1 r2 =
     useRel2Rel (L.gist effort) (relInpDim r1) (relOutDim r1) r1 r2
+
+transitiveClosure :: Rel -> Rel
+transitiveClosure r =
+    useRelRel L.transitiveClosure (relInpDim r) (relOutDim r) r
+
+inverse :: Rel -> Rel
+inverse s = useRelRel L.inverse (relOutDim s) (relInpDim s) s
+
+complement :: Rel -> Rel
+complement s = useRelRel L.complement (relInpDim s) (relOutDim s) s

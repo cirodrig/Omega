@@ -165,6 +165,12 @@ Relation *hsw_gist(Relation *r, Relation *s, int effort)
 }
 
 extern "C"
+Relation *hsw_transitive_closure(Relation *rel)
+{
+  return new Relation(TransitiveClosure(copy(*rel)));
+}
+
+extern "C"
 Relation *hsw_domain(Relation *rel)
 {
   return new Relation(Domain(copy(*rel)));
@@ -174,6 +180,18 @@ extern "C"
 Relation *hsw_range(Relation *rel)
 {
   return new Relation(Range(copy(*rel)));
+}
+
+extern "C"
+Relation *hsw_inverse(Relation *rel)
+{
+  return new Relation(Inverse(copy(*rel)));
+}
+
+extern "C"
+Relation *hsw_complement(Relation *rel)
+{
+  return new Relation(Complement(copy(*rel)));
 }
 
 extern "C"

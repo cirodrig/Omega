@@ -44,8 +44,11 @@ struct Relation *hsw_restrict_range(struct Relation *, struct Relation *);
 struct Relation *hsw_difference(struct Relation *, struct Relation *);
 struct Relation *hsw_cross_product(struct Relation *, struct Relation *);
 struct Relation *hsw_gist(struct Relation *, struct Relation *, int);
+struct Relation *hsw_transitive_closure(struct Relation *);
 struct Relation *hsw_domain(struct Relation *);
 struct Relation *hsw_range(struct Relation *);
+struct Relation *hsw_inverse(struct Relation *);
+struct Relation *hsw_complement(struct Relation *);
 
 struct F_And *hsw_relation_add_and(struct Relation *rel);
 struct Formula *hsw_relation_add_or(struct Relation *rel);

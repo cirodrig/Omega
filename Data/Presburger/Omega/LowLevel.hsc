@@ -29,12 +29,19 @@ module Data.Presburger.Omega.LowLevel
      exact, inexact, unknown,
 
      -- * Creating new sets and relations from old ones
-     Effort(..),
+
+     -- ** Bounds
      upperBound, lowerBound,
+
+     -- ** Binary operations
      union, intersection, composition,
      restrictDomain, restrictRange,
-     difference, crossProduct, gist,
-     domain, range,
+     difference, crossProduct, 
+     Effort(..),
+     gist,
+     -- ** Unary operations
+     transitiveClosure,
+     domain, range, inverse, complement,
 
      -- * Constructing formulas
      Formula,
@@ -218,9 +225,15 @@ foreign import ccall safe hsw_cross_product
     :: C_Relation -> C_Relation -> IO C_Relation
 foreign import ccall safe hsw_gist
     :: C_Relation -> C_Relation -> CInt -> IO C_Relation
+foreign import ccall safe hsw_transitive_closure
+    :: C_Relation -> IO C_Relation
 foreign import ccall safe hsw_domain
     :: C_Relation -> IO C_Relation
 foreign import ccall safe hsw_range
+    :: C_Relation -> IO C_Relation
+foreign import ccall safe hsw_inverse
+    :: C_Relation -> IO C_Relation
+foreign import ccall safe hsw_complement
     :: C_Relation -> IO C_Relation
 
 foreign import ccall safe hsw_relation_add_and
@@ -798,14 +811,23 @@ crossProduct set1 set2 =
 -- re-introducing the background truth.  The sets or relations
 -- must have the same arity.
 --
--- If @x <- gist effort r given@ and
--- @y <- 'intersection' x given@, then @y == r@.
+-- Given @x@ computed by
+--
+-- > x <- intersection given =<< gist effort r given
+--
+-- we have @x == r@.
 gist :: Presburger a => Effort -> a -> a -> IO a
 gist effort rel given
     | sameArity rel given =
         withPresburger2 rel given $ \ptr ptrGiven ->
           fromPtr =<< hsw_gist ptr ptrGiven (fromIntegral $ fromEnum effort)
     | otherwise = error "gist: arguments have different arities"
+
+-- | Get the transitive closure of a relation.  In some cases, the transitive
+-- closure cannot be computed exactly, in which case a lower bound is
+-- returned.
+transitiveClosure :: OmegaRel -> IO OmegaRel
+transitiveClosure rel = fromPtr =<< withPresburger rel hsw_transitive_closure
 
 -- | Get the domain of a relation.
 domain :: OmegaRel -> IO OmegaSet
@@ -814,6 +836,14 @@ domain rel = fromPtr =<< withPresburger rel hsw_domain
 -- | Get the range of a relation.
 range :: OmegaRel -> IO OmegaSet
 range rel = fromPtr =<< withPresburger rel hsw_range
+
+-- | Get the inverse of a relation.
+inverse :: OmegaRel -> IO OmegaRel
+inverse rel = fromPtr =<< withPresburger rel hsw_inverse
+
+-- | Get the complement of a set or relation.
+complement :: Presburger a => a -> IO a
+complement rel = fromPtr =<< withPresburger rel hsw_complement
 
 -------------------------------------------------------------------------------
 -- Formulae
