@@ -25,12 +25,13 @@ module Data.Presburger.Omega.Set
      exact,
      inexact,
      unknown,
+     equal,
 
      -- ** Bounds
      upperBound, lowerBound,
 
      -- ** Binary operations
-     equal, union, intersection, difference,
+     union, intersection, difference,
      Effort(..),
      gist,
 

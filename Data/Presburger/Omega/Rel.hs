@@ -25,12 +25,12 @@ module Data.Presburger.Omega.Rel
      exact,
      inexact,
      unknown,
+     equal,
 
      -- ** Bounds
      upperBound, lowerBound,
 
      -- ** Binary operations
-     equal,
      union, intersection, composition, join,
      restrictDomain, restrictRange,
      difference, crossProduct,
