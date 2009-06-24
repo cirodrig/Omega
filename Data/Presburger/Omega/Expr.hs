@@ -186,6 +186,7 @@ trueE, falseE :: BoolExp
 trueE = boolE True
 falseE = boolE False
 
+-- | Multiplication by -1
 negateE :: IntExp -> IntExp
 negateE e = wrapExpr $ CAUE Prod (-1) [getExpr e]
 
