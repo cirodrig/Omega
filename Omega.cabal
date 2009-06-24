@@ -2,7 +2,7 @@ Name:			Omega
 Version:		0.1.1
 Cabal-Version:		>= 1.2.3
 Build-Type:		Custom
-License:		OtherLicense
+License:		BSD3
 License-File:		LICENSE
 Author:			Christopher Rodrigues
 Maintainer:		cirodrig@illinois.edu
