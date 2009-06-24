@@ -11,7 +11,7 @@ Synopsis:		Operations on Presburger arithmetic formulae
 Description:
         This package provides tools for manipulating sets and relations
         whose members can be represented compactly as a Presburger
-        arithmetic formula.  The primary interface routines can be found
+        arithmetic formula.  The primary interface can be found
         in "Data.Presburger.Omega.Set" and "Data.Presburger.Omega.Rel".
 
         The Omega library

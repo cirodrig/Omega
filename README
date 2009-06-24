@@ -28,3 +28,11 @@ A configuration might look something like this:
 		--extra-include-dirs=$(YOUR_OMEGA_PATH)/basic/include \
 		--extra-include-dirs=$(YOUR_OMEGA_PATH)/omega_lib/include \
 		--extra-lib-dirs=$(YOUR_OMEGA_PATH)/omega_lib/obj
+
+DOCUMENTATION
+-------------
+
+The C++ Omega library includes documentation of its exported interface.
+You may wish to look there if the Haddock documentation for a set operation
+or relation operation is lacking.
+
