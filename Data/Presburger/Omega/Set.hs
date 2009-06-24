@@ -177,16 +177,13 @@ unknown :: Set -> Bool
 unknown = useSet L.unknown
 
 -- | Test whether two sets are equal.
--- This will give a precise answer only if both set are 'exact'.
--- The answer is unpredictable otherwise.
-
--- To test whether two sets are equal, complement one of them
--- and then apply satisfiability/tautology tests.
+-- The sets must have the same dimension
+-- (@dimension s1 == dimension s2@), or an error will be raised.
+--
+-- The answer is precise if both relations are 'exact'.
+-- If either relation is inexact, this function returns @False@.
 equal :: Set -> Set -> Bool
-equal r1 r2 =
-    let r2' = complement r2
-    in definiteTautology (r1 `union` r2') &&
-       not (lowerBoundSatisfiable $ r1 `intersection` r2)
+equal = useSet2 L.equal
 
 -- | Union of two sets.
 -- The sets must have the same dimension

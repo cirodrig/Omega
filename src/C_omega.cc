@@ -117,6 +117,24 @@ Relation *hsw_lower_bound(Relation *rel)
 }
 
 extern "C"
+int hsw_equal(Relation *r, Relation *s)
+{
+  /*   r == s
+   * iff
+   *    r `intersection` not s == False
+   * && r `union` not s        == True
+   */
+  Relation com_s = Complement(copy(*s));
+
+  /* If intersection is satisfiable, unequal */
+  if (Intersection(copy(*r), copy(com_s)).is_upper_bound_satisfiable())
+    return 0;
+
+  /* If union is tautology, equal; else unequal */
+  return Union(copy(*r), com_s).is_tautology();
+}
+
+extern "C"
 Relation *hsw_union(Relation *r, Relation *s)
 {
   return new Relation(Union(copy(*r), copy(*s)));

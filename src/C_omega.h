@@ -36,6 +36,7 @@ int hsw_is_inexact(struct Relation *rel);
 int hsw_is_unknown(struct Relation *rel);
 struct Relation *hsw_upper_bound(struct Relation *);
 struct Relation *hsw_lower_bound(struct Relation *);
+int hsw_equal(struct Relation *, struct Relation *);
 struct Relation *hsw_union(struct Relation *, struct Relation *);
 struct Relation *hsw_intersection(struct Relation *, struct Relation *);
 struct Relation *hsw_composition(struct Relation *, struct Relation *);

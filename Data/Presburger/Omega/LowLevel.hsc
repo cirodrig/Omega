@@ -35,7 +35,7 @@ module Data.Presburger.Omega.LowLevel
      upperBound, lowerBound,
 
      -- ** Binary operations
-     union, intersection, composition,
+     equal, union, intersection, composition,
      restrictDomain, restrictRange,
      difference, crossProduct, 
      Effort(..),
@@ -210,6 +210,8 @@ foreign import ccall safe hsw_upper_bound
     :: C_Relation -> IO C_Relation
 foreign import ccall safe hsw_lower_bound
     :: C_Relation -> IO C_Relation
+foreign import ccall safe hsw_equal
+    :: C_Relation -> C_Relation -> IO CInt
 foreign import ccall safe hsw_union
     :: C_Relation -> C_Relation -> IO C_Relation
 foreign import ccall safe hsw_intersection
@@ -759,6 +761,18 @@ upperBound rel = fromPtr =<< withPresburger rel hsw_upper_bound
 -- constraints to false.
 lowerBound :: Presburger a => a -> IO a
 lowerBound rel = fromPtr =<< withPresburger rel hsw_lower_bound
+
+-- | Test whether two sets or relations are equal.
+-- The sets or relations must have the same arity.
+--
+-- The answer is precise if both arguments are 'exact'.
+-- If either argument is inexact, this function returns @False@.
+equal :: Presburger a => a -> a -> IO Bool
+equal rel1 rel2
+    | sameArity rel1 rel2 = do
+          eq <- withPresburger2 rel1 rel2 hsw_equal
+          return $! eq /= 0
+    | otherwise = error "equal: arguments have different arities"
 
 -- | Compute the union of two sets or relations.  The sets or relations
 -- must have the same arity.

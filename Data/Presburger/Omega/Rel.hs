@@ -256,16 +256,14 @@ lowerBound :: Rel -> Rel
 lowerBound r = useRelRel L.lowerBound (relInpDim r) (relOutDim r) r
 
 -- | Test whether two relations are equal.
--- This will give a precise answer only if both relations are 'exact'.
--- The answer is unpredictable otherwise.
-
--- To test whether two relations are equal, complement one of them
--- and then apply satisfiability/tautology tests.
+-- The relations must have the same dimension
+-- (@inputDimension r1 == inputDimension r2 && outputDimension r1 == outputDimension r2@),
+-- or an error will be raised.
+--
+-- The answer is precise if both relations are 'exact'.
+-- If either relation is inexact, this function returns @False@.
 equal :: Rel -> Rel -> Bool
-equal r1 r2 =
-    let r2' = complement r2
-    in definiteTautology (r1 `union` r2') &&
-       not (lowerBoundSatisfiable $ r1 `intersection` r2)
+equal = useRel2 L.equal
 
 -- | Union of two relations.
 -- The relations must have the same dimension
