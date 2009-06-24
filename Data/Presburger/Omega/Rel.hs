@@ -41,7 +41,9 @@ module Data.Presburger.Omega.Rel
      transitiveClosure,
      domain, range,
      inverse,
-     complement
+     complement,
+     deltas,
+     approximate
     )
 where
 
@@ -52,6 +54,7 @@ import qualified Data.Presburger.Omega.LowLevel as L
 import Data.Presburger.Omega.LowLevel(OmegaRel, Effort(..))
 import Data.Presburger.Omega.SetRel
 import qualified Data.Presburger.Omega.Set as Set
+import Data.Presburger.Omega.Set(Set)
 
 -- | A relation from points in a /domain/ Z^m to points in a /range/ Z^n.
 --
@@ -222,10 +225,10 @@ toOmegaRel = relOmegaRel
 predicate :: Rel -> BoolExp
 predicate = relFun
 
-domain :: Rel -> Set.Set
+domain :: Rel -> Set
 domain r = useRel (\ptr -> Set.fromOmegaSet =<< L.domain ptr) r
 
-range :: Rel -> Set.Set
+range :: Rel -> Set
 range r = useRel (\ptr -> Set.fromOmegaSet =<< L.range ptr) r
 
 lowerBoundSatisfiable :: Rel -> Bool
@@ -292,12 +295,12 @@ composition s1 s2 =
 join :: Rel -> Rel -> Rel
 join r1 r2 = composition r2 r1
 
-restrictDomain :: Rel -> Set.Set -> Rel
+restrictDomain :: Rel -> Set -> Rel
 restrictDomain r s = unsafePerformIO $
   omegaRelToRel (relInpDim r) (relOutDim r) =<<
   L.restrictDomain (relOmegaRel r) (Set.toOmegaSet s)
 
-restrictRange :: Rel -> Set.Set -> Rel
+restrictRange :: Rel -> Set -> Rel
 restrictRange r s = unsafePerformIO $
   omegaRelToRel (relInpDim r) (relOutDim r) =<<
   L.restrictRange (relOmegaRel r) (Set.toOmegaSet s)
@@ -311,7 +314,7 @@ difference s1 s2 =
     useRel2Rel L.difference (relInpDim s1) (relOutDim s1) s1 s2
 
 -- | Cross product of two sets.
-crossProduct :: Set.Set -> Set.Set -> Rel
+crossProduct :: Set -> Set -> Rel
 crossProduct s1 s2 = unsafePerformIO $
   omegaRelToRel (Set.dimension s1) (Set.dimension s2) =<<
   L.crossProduct (Set.toOmegaSet s1) (Set.toOmegaSet s2)
@@ -333,3 +336,9 @@ inverse s = useRelRel L.inverse (relOutDim s) (relInpDim s) s
 
 complement :: Rel -> Rel
 complement s = useRelRel L.complement (relInpDim s) (relOutDim s) s
+
+deltas :: Rel -> Set
+deltas = useRel (\wrel -> Set.fromOmegaSet =<< L.deltas wrel)
+
+approximate :: Rel -> Rel
+approximate s = useRelRel L.approximate (relInpDim s) (relOutDim s) s

@@ -213,6 +213,18 @@ Relation *hsw_complement(Relation *rel)
 }
 
 extern "C"
+Relation *hsw_deltas(Relation *rel)
+{
+  return new Relation(Deltas(copy(*rel)));
+}
+
+extern "C"
+Relation *hsw_approximate(Relation *rel)
+{
+  return new Relation(Approximate(copy(*rel)));
+}
+
+extern "C"
 F_And *hsw_relation_add_and(Relation *rel)
 {
   return rel->add_and();

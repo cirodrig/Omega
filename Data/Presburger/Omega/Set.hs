@@ -36,7 +36,8 @@ module Data.Presburger.Omega.Set
      gist,
 
      -- ** Unary operations
-     complement
+     complement,
+     approximate
     )
 where
 
@@ -211,3 +212,6 @@ gist effort s1 s2 = useSet2Set (L.gist effort) (setDim s1) s1 s2
 
 complement :: Set -> Set
 complement s = useSetSet L.complement (setDim s) s
+
+approximate :: Set -> Set
+approximate s = useSetSet L.approximate (setDim s) s

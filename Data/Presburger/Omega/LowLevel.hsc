@@ -40,9 +40,11 @@ module Data.Presburger.Omega.LowLevel
      difference, crossProduct, 
      Effort(..),
      gist,
+
      -- ** Unary operations
      transitiveClosure,
      domain, range, inverse, complement,
+     deltas, approximate,
 
      -- * Constructing formulas
      Formula,
@@ -237,6 +239,10 @@ foreign import ccall safe hsw_range
 foreign import ccall safe hsw_inverse
     :: C_Relation -> IO C_Relation
 foreign import ccall safe hsw_complement
+    :: C_Relation -> IO C_Relation
+foreign import ccall safe hsw_deltas
+    :: C_Relation -> IO C_Relation
+foreign import ccall safe hsw_approximate
     :: C_Relation -> IO C_Relation
 
 foreign import ccall safe hsw_relation_add_and
@@ -859,6 +865,22 @@ inverse rel = fromPtr =<< withPresburger rel hsw_inverse
 -- | Get the complement of a set or relation.
 complement :: Presburger a => a -> IO a
 complement rel = fromPtr =<< withPresburger rel hsw_complement
+
+-- | Get the deltas of a relation.
+-- The relation's input dimensionality must be the same as its output
+-- dimensionality.
+deltas :: OmegaRel -> IO OmegaSet
+deltas rel
+    | length (rDom rel) == length (rRng rel) =
+        fromPtr =<< withPresburger rel hsw_deltas
+    | otherwise =
+        error "deltas: relation has different input and output dimensionality"
+
+-- | Approximate a set or relation by allowing all existentially quantified
+-- variables to take on rational values.  This allows these variables to be
+-- eliminated from the formula.
+approximate :: Presburger a => a -> IO a
+approximate rel = fromPtr =<< withPresburger rel hsw_approximate
 
 -------------------------------------------------------------------------------
 -- Formulae

@@ -50,6 +50,8 @@ struct Relation *hsw_domain(struct Relation *);
 struct Relation *hsw_range(struct Relation *);
 struct Relation *hsw_inverse(struct Relation *);
 struct Relation *hsw_complement(struct Relation *);
+struct Relation *hsw_deltas(struct Relation *);
+struct Relation *hsw_approximate(struct Relation *);
 
 struct F_And *hsw_relation_add_and(struct Relation *rel);
 struct Formula *hsw_relation_add_or(struct Relation *rel);
