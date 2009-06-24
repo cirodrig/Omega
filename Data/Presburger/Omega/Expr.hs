@@ -824,8 +824,8 @@ lookupVar _ [] = error "lookupVar: variable index out of range"
 -- expressions are valid as long as each simplified product has at most
 -- one variable.
 -- The library currently cannot create a set or relation if any
--- integer expressions contain quantifiers, but restriction could be lifted
--- in the future.
+-- integer expressions contain quantifiers, but this restriction could be
+-- lifted in the future.
 
 expToFormula :: [VarHandle]     -- ^ Free variables
              -> BoolExp         -- ^ Expression to convert

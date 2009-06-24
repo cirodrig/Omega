@@ -146,7 +146,7 @@ dimension = setDim
 predicate :: Set -> BoolExp
 predicate = setExp
 
--- | Get the low-level representation of a set
+-- | Convert a 'Set' to an 'OmegaSet'.
 toOmegaSet :: Set -> OmegaSet
 toOmegaSet = setOmegaSet
 
@@ -204,9 +204,17 @@ intersection s1 s2 = useSet2Set L.intersection (setDim s1) s1 s2
 difference :: Set -> Set -> Set
 difference s1 s2 = useSet2Set L.difference (setDim s1) s1 s2
 
--- | Gist of one set, given another.
--- The sets must have the same dimension
--- (@dimension s1 == dimension s2@), or an error will be raised.
+-- | Get the gist of a set, given some background truth.  The
+-- gist operator uses heuristics to simplify the set while
+-- retaining sufficient information to regenerate the original by
+-- re-introducing the background truth.  The sets must have the
+-- same dimension.
+--
+-- Given @x@ computed by
+--
+-- > x <- intersection given =<< gist effort r given
+--
+-- we have @x == r@.
 gist :: Effort -> Set -> Set -> Set
 gist effort s1 s2 = useSet2Set (L.gist effort) (setDim s1) s1 s2
 

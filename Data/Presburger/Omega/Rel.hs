@@ -319,10 +319,17 @@ crossProduct s1 s2 = unsafePerformIO $
   omegaRelToRel (Set.dimension s1) (Set.dimension s2) =<<
   L.crossProduct (Set.toOmegaSet s1) (Set.toOmegaSet s2)
 
--- | Gist of one relation, given another.
--- The relations must have the same dimension
--- (@inputDimension r1 == inputDimension r2 && outputDimension r1 == outputDimension r2@),
--- or an error will be raised.
+-- | Get the gist of a relation, given some background truth.  The
+-- gist operator uses heuristics to simplify the relation while
+-- retaining sufficient information to regenerate the original by
+-- re-introducing the background truth.  The relations must have the
+-- same input dimensions and the same output dimensions.
+--
+-- Given @x@ computed by
+--
+-- > x <- intersection given =<< gist effort r given
+--
+-- we have @x == r@.
 gist :: Effort -> Rel -> Rel -> Rel
 gist effort r1 r2 =
     useRel2Rel (L.gist effort) (relInpDim r1) (relOutDim r1) r1 r2
