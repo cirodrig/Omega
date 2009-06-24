@@ -32,7 +32,7 @@ module Data.Presburger.Omega.Expr
      sumE, prodE, notE, conjE, disjE,
      (|&&|),
      sumOfProductsE,
-     (|+|), (|-|), (|*|),
+     (|+|), (|-|), (|*|), (*|),
      isZeroE, isNonnegativeE,
      (|==|), (|/=|), (|>|), (|>=|), (|<|), (|<=|),
      forallE, existsE,
@@ -73,6 +73,7 @@ import System.IO.Unsafe
 import Data.Presburger.Omega.LowLevel
 
 infixl 7 |*|
+infixl 7 *|
 infixl 6 |+|, |-|
 infix 4 |>|, |>=|, |<|, |<=|, |==|, |/=|
 infixr 3 |&&|
@@ -223,6 +224,10 @@ e |-| f = sumE [e, negateE f]
 -- | Multiply
 (|*|) :: IntExp -> IntExp -> IntExp
 e |*| f = prodE [e, f]
+
+-- | Multiply by an integer
+(*|) :: Int -> IntExp -> IntExp
+n *| f = wrapExpr $ CAUE Prod n [getExpr f]
 
 -- | Test whether an integer expression is zero
 isZeroE :: IntExp -> BoolExp
