@@ -524,18 +524,15 @@ showsIntExprPrec env n expression =
 showsBoolExprPrec :: ShowsEnv -> Int -> BoolExpr -> ShowS
 showsBoolExprPrec env n expression =
     case expression
-    of CAUE Conj lit es -> let texts = map (showsBoolExprPrec env 0) es
-                               textsLit = if lit
-                                          then texts
-                                          else showString "falseE" : texts
+    of CAUE Conj lit es
+           | lit        -> let texts = map (showsBoolExprPrec env 0) es
+                           in texts `showSepBy` showString " |&&| "
+           | otherwise  -> showString "falseE"
+       CAUE Disj lit es
+           | lit        -> showString "trueE"
+           | otherwise  -> let texts = map (showsBoolExprPrec env 0) es
                            in showParen (n >= appPrec) $
-                              showString "conjE " . showsList textsLit
-       CAUE Disj lit es -> let texts = map (showsBoolExprPrec env 0) es
-                               textsLit = if lit
-                                          then showString "trueE" : texts
-                                            else texts
-                           in showParen (n >= appPrec) $
-                              showString "disjE " . showsList textsLit
+                              showString "disjE " . showsList texts
        PredE p e        -> let operator =
                                    case p
                                    of IsZero -> showString "isZeroE "
@@ -576,10 +573,10 @@ showSum env lit es =
 showProd env lit es =
     let text = map (showsIntExprPrec env mulPrec) es
         textLit = if lit == 1
-                  then text
-                  else (showsInt lit) : text
-    in foldr (.) id $ intersperse showMulOperator textLit
-    where
+                  then id
+                  else showsPrec mulPrec lit . showString " *| "
+    in textLit . (text `showSepBy` showString " |*| ")
+        where
       showMulOperator = showString " |*| "
 
 -- Show a list in [,,] syntax
@@ -587,6 +584,10 @@ showsList :: [ShowS] -> ShowS
 showsList ss z =
     showChar '[' $
     foldr ($) (showChar ']' $ z) (intersperse (showString ", ") ss)
+
+-- Show a list with a separator interspersed
+showSepBy :: [ShowS] -> ShowS -> ShowS
+xs `showSepBy` sep = foldr (.) id (intersperse sep xs)
 
 -- Show a quantified expression, e.g. (forallE. (x + 1))
 showQuantifier :: (ShowsEnv -> Int -> Expr t -> ShowS)
