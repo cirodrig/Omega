@@ -217,7 +217,7 @@ cleanOmega pkgDesc mlbi userhooks flags = do
       -- (one level of recursion only), ignoring errors
       lenientRemoveDirectory f = do
         b <- doesDirectoryExist f
-        when b $ do lenientRemoveFiles =<< getDirectoryContents f
+        when b $ do lenientRemoveFiles . map (f </>) =<< getDirectoryContents f
                     removeDirectory f `catch` \_ -> return ()
 
       -- Extra files produced by configuration
