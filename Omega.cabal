@@ -1,5 +1,5 @@
 Name:			Omega
-Version:		0.1.1
+Version:		0.1.2
 Cabal-Version:		>= 1.2.3
 Build-Type:		Custom
 License:		BSD3
@@ -13,18 +13,18 @@ Description:
         whose members can be represented compactly as a Presburger
         arithmetic formula.  The primary interface can be found
         in "Data.Presburger.Omega.Set" and "Data.Presburger.Omega.Rel".
-
-        The Omega library
-        (<http://github.com/davewathaverford/the-omega-project>) must
-        be installed to build this package.
 Category:		Data
 Extra-Source-Files:
 	README
+	aclocal.m4
 	configure.ac
 	Makefile.in
-	src/C_omega.h
-	src/C_omega.cc
+	src/the-omega-project.tar.gz
 Extra-Tmp-Files:	build/C_omega.o
+
+Flag UseInstalledOmega
+  Description:		Link to a preinstalled version of the Omega library
+  Default:		False
 
 Library
   Build-Depends:	base >= 3 && < 4, containers
@@ -38,4 +38,8 @@ Library
   Extensions:		GADTs ScopedTypeVariables
   Build-Tools:		hsc2hs
   Include-Dirs:		src
-  Extra-Libraries:	omega stdc++
+
+  if flag(UseInstalledOmega)
+    Extra-Libraries:	omega stdc++
+  else
+    Extra-Libraries:	stdc++

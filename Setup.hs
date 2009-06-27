@@ -1,5 +1,6 @@
 
 import Control.Applicative
+import Control.Exception(bracket)
 import Control.Monad
 import Data.Char
 import Data.Maybe
@@ -15,26 +16,42 @@ import System.Cmd
 import System.Directory
 import System.Exit(ExitCode(..))
 import System.IO
-import System.FilePath((</>))
+import System.FilePath((</>), takeExtension)
 import System.Process
 
 -- Mimic the && command of 'sh'
 (>&&>) :: IO ExitCode -> IO ExitCode -> IO ExitCode
-cmd1 >&&> cmd2 = do
-  rc <- cmd1
-  case rc of
-    ExitSuccess   -> cmd2
-    ExitFailure _ -> return rc
+cmd1 >&&> cmd2 = cmd1 >>= continue
+    where 
+      continue ExitSuccess = cmd2
+      continue returnCode  = return returnCode
 
 -- We will call 'autoconf' and 'make'
 autoconfProgram = simpleProgram "autoconf"
 makeProgram = simpleProgram "make"
 
--- Our single C++ source file is here
+-- Our single C++ source file and corresponding object file are here
 cppSourceName = "src" </> "C_omega.cc"
-
--- It becomes this object file
 cppObjectName = "build" </> "C_omega.o"
+
+-- Record whether we're building the Omega library here
+useInstalledOmegaFlagPath = "dist" </> "UseInstalledOmega"
+
+writeUseInstalledOmegaFlag :: Bool -> IO ()
+writeUseInstalledOmegaFlag b = do
+  writeFile useInstalledOmegaFlagPath (show b)
+
+readUseInstalledOmegaFlag :: IO Bool
+readUseInstalledOmegaFlag = do
+  text <- readFile useInstalledOmegaFlagPath `catch`
+          \_ -> die "Configuration file missing; try reconfiguring"
+  return $! read text
+
+-- If we're building the Omega library, it's here
+omegaLibPath = "src" </> "the-omega-project" </> "omega_lib" </> "obj" </> "libomega.a"
+
+-- Unpack the Omega library into this directory
+omegaUnpackPath = "build" </> "unpack_omega"
 
 -------------------------------------------------------------------------------
 -- Configuration
@@ -44,31 +61,43 @@ configureOmega pkgDesc flags = do
   lbi <- confHook simpleUserHooks pkgDesc flags
 
   let verb = fromFlagOrDefault Verbosity.normal $ configVerbosity flags
-      cfg = withPrograms lbi 
-
+      cfg = withPrograms lbi
       runAutoconf = do rawSystemProgramConf verb autoconfProgram cfg []
                        return ExitSuccess
       
   -- Run autoconf configure
   runAutoconf >&&> runConfigure lbi
 
+  -- Save this flag for later use
+  writeUseInstalledOmegaFlag useInstalledOmega
+
   return lbi
 
     where
+      -- Will build the Omega library?
+      useInstalledOmega = fromMaybe False $
+                          lookup (FlagName "useinstalledomega") $
+                          configConfigurationsFlags flags
+
       -- Run 'configure' with the extra arguments that were passed to
       -- Setup.hs
       runConfigure lbi = do
         currentDir <- getCurrentDirectory
 
-        let opts = autoConfigureOptions lbi
+        let opts = autoConfigureOptions lbi useInstalledOmega
             configProgramName = currentDir </> "configure"
 
         rawSystem configProgramName opts
 
 -- Configuration: extract options to pass to 'configure'
-autoConfigureOptions :: LocalBuildInfo -> [String]
-autoConfigureOptions localBuildInfo = [libdirs, includedirs]
+autoConfigureOptions :: LocalBuildInfo -> Bool -> [String]
+autoConfigureOptions localBuildInfo useInstalledOmega =
+    withOmega ++ [libdirs, includedirs]
     where
+      withOmega = if useInstalledOmega
+                  then ["--with-omega"]
+                  else []
+
       libraryDescr = case library $ localPkgDescr localBuildInfo
                      of Nothing -> error "Library description is missing"
                         Just l -> l
@@ -91,6 +120,9 @@ autoConfigureOptions localBuildInfo = [libdirs, includedirs]
 -- Building
 
 buildOmega pkgDesc lbi userhooks flags = do
+
+  useInstalledOmega <- readUseInstalledOmegaFlag
+
   -- Do default build procedure for hs files
   buildHook simpleUserHooks pkgDesc lbi userhooks flags
 
@@ -98,33 +130,72 @@ buildOmega pkgDesc lbi userhooks flags = do
   let verb = fromFlagOrDefault Verbosity.normal $ buildVerbosity flags
   (arPgm, _) <- requireProgram verb arProgram AnyVersion (withPrograms lbi)
 
-  -- Build the C++ source file
+  -- Build the C++ source file (and Omega library, if configured)
+  -- Makefile's behavior is controlled by output of 'configure'
   rawSystemProgramConf verb makeProgram (withPrograms lbi) ["all"]
 
-  -- Add the object file to libraries
+  -- Add other object files to libraries
   let pkgId   = package $ localPkgDescr lbi
 
   let addStaticObjectFile objName libName =
           rawSystemProgram verb arPgm ["r", libName, objName]
 
+      addStaticObjectFiles libName = do
+          -- Add the C++ interface file
+          addStaticObjectFile cppObjectName libName
+
+          -- Add contents of libomega.a
+          unless useInstalledOmega $
+              transferArFiles verb arPgm omegaLibPath libName
+
   when (withVanillaLib lbi) $
        let libName = buildDir lbi </> mkLibName pkgId
-       in addStaticObjectFile cppObjectName libName
+       in addStaticObjectFiles libName
 
   when (withProfLib lbi) $
        let libName = buildDir lbi </> mkProfLibName pkgId
-       in addStaticObjectFile cppObjectName libName
+       in addStaticObjectFiles libName
 
   when (withSharedLib lbi) $
        die "Sorry, this package is not set up to build shared libraries"
 
   return ()
 
+-- Transfer the contents of one archive to another
+transferArFiles verb arPgm src dst = do
+  srcCan <- canonicalizePath src
+  dstCan <- canonicalizePath dst
+  withTempDirectory verb omegaUnpackPath $
+
+    -- Save/restore the current working directory
+    bracket getCurrentDirectory setCurrentDirectory $ \_ -> do
+
+      -- Go to temporary directory
+      setCurrentDirectory omegaUnpackPath
+
+      -- Unpack source archive
+      runAr ["x", srcCan]
+
+      -- Find object files
+      objs <- liftM (filter isObjectFile) $ getDirectoryContents "."
+      when (null objs) $ warn verb "No object files found in Omega library; build may be incomplete"
+
+      -- Insert into destination archive
+      runAr (["r", dstCan] ++ objs)
+    where
+      runAr = rawSystemProgram verb arPgm
+      isObjectFile f = takeExtension f == ".o"
+
 -------------------------------------------------------------------------------
 -- Cleaning
 
 cleanOmega pkgDesc mlbi userhooks flags = do
   let verb = fromFlagOrDefault Verbosity.normal $ cleanVerbosity flags
+
+  -- run 'make clean', which will clean the Omega library if appropriate
+  case mlbi of
+    Just lbi -> rawSystemProgramConf verb makeProgram (withPrograms lbi) ["clean"]
+    Nothing -> return ()
 
   -- Clean extra files if we don't need to save configuration
   -- (Other temp files are automatically cleaned)
@@ -150,7 +221,8 @@ cleanOmega pkgDesc mlbi userhooks flags = do
                     removeDirectory f `catch` \_ -> return ()
 
       -- Extra files produced by configuration
-      configFiles = ["configure", "config.log", "config.status", "Makefile"]
+      configFiles = ["configure", "config.log", "config.status", "Makefile",
+                     useInstalledOmegaFlagPath]
 
 -------------------------------------------------------------------------------
 -- Hooks
