@@ -16,7 +16,7 @@ import System.Cmd
 import System.Directory
 import System.Exit(ExitCode(..))
 import System.IO
-import System.FilePath((</>), takeExtension)
+import System.FilePath((</>), (<.>), takeExtension)
 import System.Process
 
 -- Mimic the && command of 'sh'
@@ -26,16 +26,8 @@ cmd1 >&&> cmd2 = cmd1 >>= continue
       continue ExitSuccess = cmd2
       continue returnCode  = return returnCode
 
--- We will call 'autoconf' and 'make'
-autoconfProgram = simpleProgram "autoconf"
-makeProgram = simpleProgram "make"
-
--- Our single C++ source file and corresponding object file are here
-cppSourceName = "src" </> "C_omega.cc"
-cppObjectName = "build" </> "C_omega.o"
-
 -- Record whether we're building the Omega library here
-useInstalledOmegaFlagPath = "dist" </> "UseInstalledOmega"
+useInstalledOmegaFlagPath = "build" </> "UseInstalledOmega"
 
 writeUseInstalledOmegaFlag :: Bool -> IO ()
 writeUseInstalledOmegaFlag b = do
@@ -47,11 +39,27 @@ readUseInstalledOmegaFlag = do
           \_ -> die "Configuration file missing; try reconfiguring"
   return $! read text
 
+-- We will call 'autoconf' and 'make'
+autoconfProgram = simpleProgram "autoconf"
+makeProgram = simpleProgram "make"
+
+-- Our single C++ source file and corresponding object file are here
+cppSourceName = "src" </> "C_omega.cc"
+cppObjectName = "build" </> "C_omega.o"
+
 -- If we're building the Omega library, it's here
 omegaLibPath = "src" </> "the-omega-project" </> "omega_lib" </> "obj" </> "libomega.a"
 
 -- Unpack the Omega library into this directory
 omegaUnpackPath = "build" </> "unpack_omega"
+
+noGHCiLib =
+    die "Sorry, this package does not support GHCi.\n\
+        \Please configure with --disable-library-for-ghci to disable."
+
+noSharedLib =
+    die "Sorry, this package does not support shared library output.\n\
+        \Please configure with --disable-shared to disable."
 
 -------------------------------------------------------------------------------
 -- Configuration
@@ -59,6 +67,11 @@ omegaUnpackPath = "build" </> "unpack_omega"
 configureOmega pkgDesc flags = do
   -- Run Cabal configure
   lbi <- confHook simpleUserHooks pkgDesc flags
+
+  -- Detect and report error on unsupported configurations
+  when (withGHCiLib lbi) noGHCiLib
+
+  when (withSharedLib lbi) noSharedLib
 
   let verb = fromFlagOrDefault Verbosity.normal $ configVerbosity flags
       cfg = withPrograms lbi
@@ -126,9 +139,10 @@ buildOmega pkgDesc lbi userhooks flags = do
   -- Do default build procedure for hs files
   buildHook simpleUserHooks pkgDesc lbi userhooks flags
 
-  -- Get 'ar' program
+  -- Get 'ar' and 'ld' programs
   let verb = fromFlagOrDefault Verbosity.normal $ buildVerbosity flags
   (arPgm, _) <- requireProgram verb arProgram AnyVersion (withPrograms lbi)
+  let runAr = rawSystemProgram verb arPgm
 
   -- Build the C++ source file (and Omega library, if configured)
   -- Makefile's behavior is controlled by output of 'configure'
@@ -137,16 +151,18 @@ buildOmega pkgDesc lbi userhooks flags = do
   -- Add other object files to libraries
   let pkgId   = package $ localPkgDescr lbi
 
-  let addStaticObjectFile objName libName =
-          rawSystemProgram verb arPgm ["r", libName, objName]
-
+  let -- Add extra files into an archive file
       addStaticObjectFiles libName = do
           -- Add the C++ interface file
           addStaticObjectFile cppObjectName libName
 
           -- Add contents of libomega.a
           unless useInstalledOmega $
-              transferArFiles verb arPgm omegaLibPath libName
+              transferArFiles verb runAr omegaLibPath libName
+
+          where
+            addStaticObjectFile objName libName =
+                runAr ["r", libName, objName]
 
   when (withVanillaLib lbi) $
        let libName = buildDir lbi </> mkLibName pkgId
@@ -156,13 +172,13 @@ buildOmega pkgDesc lbi userhooks flags = do
        let libName = buildDir lbi </> mkProfLibName pkgId
        in addStaticObjectFiles libName
 
-  when (withSharedLib lbi) $
-       die "Sorry, this package is not set up to build shared libraries"
+  when (withGHCiLib lbi) noGHCiLib
+  when (withSharedLib lbi) noSharedLib
 
   return ()
 
 -- Transfer the contents of one archive to another
-transferArFiles verb arPgm src dst = do
+transferArFiles verb runAr src dst = do
   srcCan <- canonicalizePath src
   dstCan <- canonicalizePath dst
   withTempDirectory verb omegaUnpackPath $
@@ -183,7 +199,6 @@ transferArFiles verb arPgm src dst = do
       -- Insert into destination archive
       runAr (["r", dstCan] ++ objs)
     where
-      runAr = rawSystemProgram verb arPgm
       isObjectFile f = takeExtension f == ".o"
 
 -------------------------------------------------------------------------------
