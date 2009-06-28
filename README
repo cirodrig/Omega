@@ -1,18 +1,22 @@
 Omega -- Operations on Presburger arithmetic formulae
 
+This package contains a copy of the Omega library.
+The Omega library's home page is http://www.cs.umd.edu/projects/omega/, and
+its full sources are at http://github.com/davewathaverford/the-omega-project/.
+
 BUILDING INSTRUCTIONS
 ---------------------
 
 This is a Cabal package.  The typical build process is:
 
-	runhaskell Setup.hs configure
+	runhaskell Setup.hs configure <FLAGS>
 	runhaskell Setup.hs build
 	runhaskell Setup.hs install
 
-This package requires the C++ Omega library to be installed
-(http://github.com/davewathaverford/the-omega-project).  Because this package
-contains C++ source code, Cabal will probably need help finding the required
-headers and libraries.
+Configure with -fUseInstalledOmega if you have already installed the C++
+Omega library.  Otherwise, the library will be built and linked into this
+package.  Because this package contains C++ source code, Cabal may need help
+finding the required headers and libraries.
 
 You will probably need to provide the paths to the C++ include directory
 (contains STL headers such as "vector") and library directory (contains the
@@ -24,10 +28,7 @@ A configuration might look something like this:
 
 	runhaskell Setup.hs configure \
 		--extra-include-dirs=$(YOUR_CXX_INCLUDE_PATH) \
-		--extra-lib-dirs=$(YOUR_CXX_LIB_PATH) \
-		--extra-include-dirs=$(YOUR_OMEGA_PATH)/basic/include \
-		--extra-include-dirs=$(YOUR_OMEGA_PATH)/omega_lib/include \
-		--extra-lib-dirs=$(YOUR_OMEGA_PATH)/omega_lib/obj
+		--extra-lib-dirs=$(YOUR_CXX_LIB_PATH)
 
 DOCUMENTATION
 -------------
