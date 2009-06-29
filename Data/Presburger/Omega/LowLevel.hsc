@@ -729,7 +729,7 @@ separateRelationDimensions r = do
 lowerBoundSatisfiable :: Presburger a => a -> IO Bool
 
 -- | Determine an upper bound on whether the formula is satisfiable.
--- The lower bound is based on treating all UNKNOWN constraints as false.
+-- The upper bound is based on treating all UNKNOWN constraints as true.
 upperBoundSatisfiable :: Presburger a => a -> IO Bool
 
 -- | Use simple, fast tests to decide whether the formula is a tautology.
