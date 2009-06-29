@@ -210,11 +210,9 @@ difference s1 s2 = useSet2Set L.difference (setDim s1) s1 s2
 -- re-introducing the background truth.  The sets must have the
 -- same dimension.
 --
--- Given @x@ computed by
+-- The gist satisfies the property
 --
--- > x <- intersection given =<< gist effort r given
---
--- we have @x == r@.
+-- > x === gist effort x given `intersection` given
 gist :: Effort -> Set -> Set -> Set
 gist effort s1 s2 = useSet2Set (L.gist effort) (setDim s1) s1 s2
 

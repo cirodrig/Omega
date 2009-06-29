@@ -325,11 +325,9 @@ crossProduct s1 s2 = unsafePerformIO $
 -- re-introducing the background truth.  The relations must have the
 -- same input dimensions and the same output dimensions.
 --
--- Given @x@ computed by
+-- The gist satisfies the property
 --
--- > x <- intersection given =<< gist effort r given
---
--- we have @x == r@.
+-- > x === gist effort x given `intersection` given
 gist :: Effort -> Rel -> Rel -> Rel
 gist effort r1 r2 =
     useRel2Rel (L.gist effort) (relInpDim r1) (relOutDim r1) r1 r2
