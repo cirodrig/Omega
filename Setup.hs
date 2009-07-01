@@ -181,7 +181,9 @@ buildOmega pkgDesc lbi userhooks flags = do
 transferArFiles verb runAr src dst = do
   srcCan <- canonicalizePath src
   dstCan <- canonicalizePath dst
-  withTempDirectory verb omegaUnpackPath $
+
+  -- Create/remove a temporary directory
+  bracket createUnpackDirectory (\_ -> removeUnpackDirectory) $ \_ ->
 
     -- Save/restore the current working directory
     bracket getCurrentDirectory setCurrentDirectory $ \_ -> do
@@ -200,6 +202,9 @@ transferArFiles verb runAr src dst = do
       runAr (["r", dstCan] ++ objs)
     where
       isObjectFile f = takeExtension f == ".o"
+
+      createUnpackDirectory = createDirectoryIfMissing True omegaUnpackPath
+      removeUnpackDirectory = removeDirectoryRecursive omegaUnpackPath
 
 -------------------------------------------------------------------------------
 -- Cleaning

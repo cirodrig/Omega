@@ -1,6 +1,6 @@
+Cabal-Version:		>= 1.2.3 && <= 1.7.0
 Name:			Omega
 Version:		0.1.2
-Cabal-Version:		>= 1.2.3
 Build-Type:		Custom
 License:		BSD3
 License-File:		LICENSE
