@@ -274,15 +274,20 @@ forallE f = wrapExpr $ QuantE Forall $ getExpr $ withFreshVariable f
 existsE :: (Var -> Exp t) -> Exp t
 existsE f = wrapExpr $ QuantE Exists $ getExpr $ withFreshVariable f
 
--- | Reduce an integer expression to a value.
+-- | Reduce an integer expression to a value.  Values for free variables
+-- are provided explicitly in an environment.
+--
+-- Note, the current way of handling quantification isn't so useful and will
+-- change soon.
 foldIntExp :: forall a.
               (Int -> [a] -> a)   -- ^ summation
            -> (Int -> [a] -> a)   -- ^ multiplication
            -> (Quantifier -> (a -> a) -> a) -- ^ quantification
            -> (Int -> a)          -- ^ integer literal
+           -> [a]                 -- ^ environment
            -> (IntExp -> a)
-foldIntExp sumE prodE quantE litE expression =
-    foldIntExp' sumE prodE quantE litE [] (getSimplifiedExpr expression)
+foldIntExp sumE prodE quantE litE env expression =
+    foldIntExp' sumE prodE quantE litE env (getSimplifiedExpr expression)
 
 foldIntExp' :: forall a.
                (Int -> [a] -> a)   -- ^ summation
@@ -299,14 +304,22 @@ foldIntExp' sumE prodE quantE litE env expression = rec env expression
           of CAUE Sum  lit es -> sumE lit $ map (rec env) es
              CAUE Prod lit es -> prodE lit $ map (rec env) es
              LitE n           -> litE n
-             VarE (Bound i)   -> env !! i
+             VarE (Bound i)   -> env `index` i
              VarE _           -> error "Expr.fold: unexpected variable"
              QuantE q e       -> quantE q (quantifier env e)
 
       -- Handle a quantifier: the variable gets the specified value
       quantifier env e value = rec (value:env) e
 
--- | Reduce a boolean expression to a value.
+      -- Like (!!), but throws a useful error message
+      index (x:_)  0 = x
+      index (_:xs) n = index xs (n-1)
+      index []     _ = error "Expr.fold: variable index out of range"
+
+-- | Reduce a boolean expression to a value.  Values for free variables
+-- are provided explicitly in an environment.
+-- Note, the current way of handling quantification isn't so useful and will
+-- change soon.
 foldBoolExp :: forall a b.
                (Int -> [b] -> b)  -- ^ summation
             -> (Int -> [b] -> b)  -- ^ multiplication
@@ -319,9 +332,10 @@ foldBoolExp :: forall a b.
             -> (PredOp -> b -> a) -- ^ an integer predicate
             -> a                  -- ^ true
             -> a                  -- ^ false
+            -> [b]                -- ^ environment
             -> (BoolExp -> a)
 foldBoolExp sumE prodE quantIE litE orE andE notE quantE predE trueE falseE
-            expression = rec [] (getSimplifiedExpr expression)
+            env expression = rec env (getSimplifiedExpr expression)
     where
       rec :: forall. [b] -> Expr Bool -> a
       rec env expression =
