@@ -644,15 +644,14 @@ showProd env lit es =
 
 -- Show a list in [,,] syntax
 showsList :: [ShowS] -> ShowS
-showsList ss z =
-    showChar '[' $
-    foldr ($) (showChar ']' $ z) (intersperse (showString ", ") ss)
+showsList ss =
+    showChar '[' . (ss `showSepBy` showString ", ") . showChar ']'
 
 -- Show a list with a separator interspersed
 showSepBy :: [ShowS] -> ShowS -> ShowS
 xs `showSepBy` sep = foldr (.) id (intersperse sep xs)
 
--- Show a quantified expression, e.g. (forallE. (x + 1))
+-- Show a quantified expression, e.g. (forallE $ \x -> varE x |+| intE 1)
 showQuantifier :: (ShowsEnv -> Int -> Expr t -> ShowS)
                -> ShowsEnv -> Quantifier -> Expr t -> ShowS
 showQuantifier showExpr env q e =
