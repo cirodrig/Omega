@@ -37,6 +37,9 @@ module Data.Presburger.Omega.Expr
      (|==|), (|/=|), (|>|), (|>=|), (|<|), (|<=|),
      forallE, existsE,
 
+     -- ** Destruction
+     foldIntExp, foldBoolExp,
+
      -- ** Internal data structures
      --
      -- | These are exported to allow other modules to build the low-level
@@ -44,6 +47,7 @@ module Data.Presburger.Omega.Expr
      -- expressions.  Normally, the 'Exp' functions are sufficient.
      Expr, IntExpr, BoolExpr,
      PredOp(..),
+     Quantifier(..),
      wrapExpr, wrapSimplifiedExpr,
      varExpr, sumOfProductsExpr, conjExpr, disjExpr, testExpr, existsExpr,
 
@@ -269,6 +273,74 @@ forallE f = wrapExpr $ QuantE Forall $ getExpr $ withFreshVariable f
 -- | Build an existentially quantified formula.
 existsE :: (Var -> Exp t) -> Exp t
 existsE f = wrapExpr $ QuantE Exists $ getExpr $ withFreshVariable f
+
+-- | Reduce an integer expression to a value.
+foldIntExp :: forall a.
+              (Int -> [a] -> a)   -- ^ summation
+           -> (Int -> [a] -> a)   -- ^ multiplication
+           -> (Quantifier -> (a -> a) -> a) -- ^ quantification
+           -> (Int -> a)          -- ^ integer literal
+           -> (IntExp -> a)
+foldIntExp sumE prodE quantE litE expression =
+    foldIntExp' sumE prodE quantE litE [] (getSimplifiedExpr expression)
+
+foldIntExp' :: forall a.
+               (Int -> [a] -> a)   -- ^ summation
+            -> (Int -> [a] -> a)   -- ^ multiplication
+            -> (Quantifier -> (a -> a) -> a) -- ^ quantification
+            -> (Int -> a)          -- ^ integer literal
+            -> [a]                -- ^ environment
+            -> (Expr Int -> a)
+foldIntExp' sumE prodE quantE litE env expression = rec env expression
+    where
+      rec :: forall. [a] -> Expr Int -> a
+      rec env expression =
+          case expression
+          of CAUE Sum  lit es -> sumE lit $ map (rec env) es
+             CAUE Prod lit es -> prodE lit $ map (rec env) es
+             LitE n           -> litE n
+             VarE (Bound i)   -> env !! i
+             VarE _           -> error "Expr.fold: unexpected variable"
+             QuantE q e       -> quantE q (quantifier env e)
+
+      -- Handle a quantifier: the variable gets the specified value
+      quantifier env e value = rec (value:env) e
+
+-- | Reduce a boolean expression to a value.
+foldBoolExp :: forall a b.
+               (Int -> [b] -> b)  -- ^ summation
+            -> (Int -> [b] -> b)  -- ^ multiplication
+            -> (Quantifier -> (b -> b) -> b) -- ^ quantification
+            -> (Int -> b)         -- ^ integer literal
+            -> ([a] -> a)         -- ^ disjunction
+            -> ([a] -> a)         -- ^ conjunction
+            -> (a -> a)           -- ^ negation
+            -> (Quantifier -> (b -> a) -> a) -- ^ quantification
+            -> (PredOp -> b -> a) -- ^ an integer predicate
+            -> a                  -- ^ true
+            -> a                  -- ^ false
+            -> (BoolExp -> a)
+foldBoolExp sumE prodE quantIE litE orE andE notE quantE predE trueE falseE
+            expression = rec [] (getSimplifiedExpr expression)
+    where
+      rec :: forall. [b] -> Expr Bool -> a
+      rec env expression =
+          case expression
+          of CAUE Disj True  es -> trueE
+             CAUE Disj False es -> orE $ map (rec env) es
+             CAUE Conj True  es -> andE $ map (rec env) es
+             CAUE Conj False es -> falseE
+             PredE pred e       -> predE pred (integral env e)
+             NotE e             -> notE (rec env e)
+             LitE True          -> trueE
+             LitE False         -> falseE
+             QuantE q e         -> quantE q (quantifier env e)
+
+      -- Handle a quantifier: the variable gets the specified value
+      quantifier env e value = rec (value:env) e
+
+      -- Call foldIntExp for integer expressions
+      integral env e = foldIntExp' sumE prodE quantIE litE env e
 
 -- | Use a fresh variable in an expression.  After the expression is
 -- constructed, rename/adjust variable indices so that the fresh variable
@@ -955,4 +1027,4 @@ variablesWithinRange n e = check n $ getExpr e
             check' (VarE (Quantified _)) = quantifiedVar
             check' (QuantE _ e)          = check (n+1) e
 
-      quantifiedVar = error "Unexpected quantified variable"
+      quantifiedVar = error "variablesWithinRange: unexpected variable"
