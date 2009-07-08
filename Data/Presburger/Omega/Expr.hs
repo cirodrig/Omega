@@ -769,7 +769,11 @@ posToSop expr@(CAUE Prod n es)
     where
       terms = map deconstructSum es
       mkTermList (Term n es) = LitE n : es
-      isSingletonTerm (Term _ [_]) = True
+
+      -- True if we've deconstructed something that's not really a sum.
+      -- Compare with eliminations in 'zus'.
+      isSingletonTerm (Term 0 [_]) = True
+      isSingletonTerm (Term _ [])  = True
       isSingletonTerm (Term _ _  ) = False
 
 posToSop expr = expr            -- Terms other than products are not modified
