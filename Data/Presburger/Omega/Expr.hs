@@ -469,13 +469,6 @@ cauEq Prod = (==)
 cauEq Conj = (==)
 cauEq Disj = (==)
 
--- Get the 'shows' operator for type t.
-cauShows :: CAUOp t -> t -> ShowS
-cauShows Sum  = shows
-cauShows Prod = shows
-cauShows Conj = shows
-cauShows Disj = shows
-
 -- Get the zero for a CAU op (if one exists)
 zero :: CAUOp t -> Maybe t
 zero Sum  = Nothing
@@ -518,7 +511,6 @@ evalPred IsGEZ  = (0 <=)
 appPrec = 10
 mulPrec = 7
 addPrec = 6
-relPrec = 4
 lamPrec = 0
 
 -- An environment for showing expressions.
@@ -649,8 +641,6 @@ showProd env lit es =
                   then id
                   else showsPrec mulPrec lit . showString " *| "
     in textLit . (text `showSepBy` showString " |*| ")
-        where
-      showMulOperator = showString " |*| "
 
 -- Show a list in [,,] syntax
 showsList :: [ShowS] -> ShowS
