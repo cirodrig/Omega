@@ -347,7 +347,7 @@ foldBoolExp sumE prodE quantIE litE orE andE notE quantE predE trueE falseE
 -- has index 0 and all other free variables' indices are incremented
 -- by 1.
 withFreshVariable :: (Var -> Exp t) -> Exp t
-withFreshVariable f =unsafePerformIO $ do
+withFreshVariable f = unsafePerformIO $ do
   v <- newQuantified
   return $ rename v (Bound 0) $ adjustBindings 0 1 $ f v
 
@@ -446,21 +446,23 @@ isLitE :: Expr t -> Bool
 isLitE (LitE _) = True
 isLitE _        = False
 
-deconstructProduct :: IntExpr -> Term Int
-deconstructProduct (CAUE Prod n xs) = (n, xs)
-deconstructProduct e                = (unit Prod, [e])
+data Term = Term {-# UNPACK #-} !Int [IntExpr]
 
-rebuildProduct :: Term Int -> Expr Int
-rebuildProduct (1, [e]) = e
-rebuildProduct (n, es)  = CAUE Prod n es
+deconstructProduct :: IntExpr -> Term
+deconstructProduct (CAUE Prod n xs) = Term n xs
+deconstructProduct e                = Term (unit Prod) [e]
 
-deconstructSum :: Expr Int -> Term Int
-deconstructSum (CAUE Sum n xs) = (n, xs)
-deconstructSum e               = (unit Sum, [e])
+rebuildProduct :: Term -> IntExpr
+rebuildProduct (Term 1 [e]) = e
+rebuildProduct (Term n es)  = CAUE Prod n es
 
-rebuildSum :: Term Int -> Expr Int
-rebuildSum (1, [e]) = e
-rebuildSum (n, es)  = CAUE Sum n es
+deconstructSum :: IntExpr -> Term
+deconstructSum (CAUE Sum n xs) = Term n xs
+deconstructSum e               = Term (unit Sum) [e]
+
+rebuildSum :: Term -> IntExpr
+rebuildSum (Term 1 [e]) = e
+rebuildSum (Term n es)  = CAUE Sum n es
 
 -- Get the 'equality' operator for type t.
 cauEq :: CAUOp t -> t -> t -> Bool
@@ -521,7 +523,7 @@ lamPrec = 0
 data ShowsEnv =
     ShowsEnv
     { -- How to show the n_th bound variable, given a precedence context
-      showNthVar :: [Int -> ShowS]
+      showNthVar :: ![Int -> ShowS]
       -- Number of bound variables we know about.
       --   numBound e == length (showNthVar e)
     , numBound   :: !Int
@@ -626,10 +628,10 @@ showSum env lit es =
 
       showSumTailElement e =
           case deconstructProduct e
-          of (1, es)             -> add . showProd env 1 es
-             (-1, es)            -> sub . showProd env 1 es
-             (n, es) | n >= 0    -> add . showProd env n es
-                     | otherwise -> sub . showProd env (negate n) es
+          of Term 1 es             -> add . showProd env 1 es
+             Term (-1) es          -> sub . showProd env 1 es
+             Term n es | n >= 0    -> add . showProd env n es
+                       | otherwise -> sub . showProd env (negate n) es
 
       add = showString " |+| "
       sub = showString " |-| "
@@ -751,7 +753,7 @@ complexSimplifications e =
 
 posToSop :: Expr Int -> Expr Int
 posToSop expr@(CAUE Prod n es)
-    | all (isSingletonList . snd) terms =
+    | all isSingletonTerm terms =
         -- If no terms are sums, then the expression is unchanged
         expr
 
@@ -761,15 +763,14 @@ posToSop expr@(CAUE Prod n es)
               --   product (map sum terms')
               terms' = [LitE n] : map mkTermList terms
 
-              -- The cartesian product converts this to a sum of products.
-              sop    = sequence terms'
-              expr'  = CAUE Sum 0 (map (CAUE Prod 1) sop)
+              -- 'sequence' converts terms' to sum of products from.
+              expr'  = CAUE Sum 0 [CAUE Prod 1 t | t <- sequence terms']
           in simplify expr'
     where
       terms = map deconstructSum es
-      mkTermList (n, es) = LitE n : es
-      isSingletonList [_] = True
-      isSingletonList _   = False
+      mkTermList (Term n es) = LitE n : es
+      isSingletonTerm (Term _ [_]) = True
+      isSingletonTerm (Term _ _  ) = False
 
 posToSop expr = expr            -- Terms other than products are not modified
 
@@ -832,8 +833,6 @@ zus e = e
 --  collect (2xy + 3x - 3xy)
 --  becomes (-1)xy + 3x
 
-type Term t = (t, [Expr t])
-
 collect :: Expr Int -> Expr Int
 collect (CAUE Sum literal es) =
     let es' = map simplify $
@@ -843,7 +842,7 @@ collect (CAUE Sum literal es) =
     in CAUE Sum literal es'
 
     where
-      collectTerms :: [Term Int] -> [Term Int]
+      collectTerms :: [Term] -> [Term]
       collectTerms (t:ts) =
           case collectTerm t ts of (t', ts') -> t':collectTerms ts'
       collectTerms [] = []
@@ -852,14 +851,14 @@ collect (CAUE Sum literal es) =
       -- the first term only in their multiplier.  The collected terms'
       -- multipliers are summed.  The result is the collected term
       -- and the unused terms from the list.
-      collectTerm :: Term Int -> [Term Int] -> (Term Int, [Term Int])
-      collectTerm (factor, t) terms =
+      collectTerm :: Term -> [Term] -> (Term, [Term])
+      collectTerm (Term factor t) terms =
           let (equalTerms, terms') = partition (sameTerms t) terms
-              factor'              = factor + sum (map fst equalTerms)
-          in ((factor', t), terms')
+              factor'              = factor + sum [n | Term n _ <- equalTerms]
+          in (Term factor' t, terms')
 
-      -- Decide whether the expression lists are equal.
-      sameTerms t (_, t') = expListsEqual t t'
+      -- True if the terms are the same modulo a constant factor.
+      sameTerms t (Term _ t') = expListsEqual t t'
 
 collect e = e                   -- Terms other than sums do not change
 
@@ -932,12 +931,12 @@ sumToConstraint :: [VarHandle]  -- ^ free variables
                 -> ([Coefficient], Int)
 sumToConstraint freeVars expr =
     case deconstructSum expr
-    of (constant, terms) -> (map deconstructTerm terms, constant)
+    of Term constant terms -> (map deconstructTerm terms, constant)
     where
       deconstructTerm :: IntExpr -> Coefficient
       deconstructTerm expr =
           case deconstructProduct expr
-          of (n, [VarE (Bound i)]) -> Coefficient (lookupVar i freeVars) n
+          of Term n [VarE (Bound i)] -> Coefficient (lookupVar i freeVars) n
              _ -> expToFormulaError "expression is non-affine"
 
 expToFormulaError :: String -> a
