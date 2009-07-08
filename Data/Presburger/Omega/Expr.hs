@@ -780,16 +780,19 @@ posToSop expr = expr            -- Terms other than products are not modified
 
 -- Flatten nested CA expressions
 flatten :: forall t. Expr t -> Expr t
-flatten (CAUE op lit es) = CAUE op lit (flat es)
+flatten (CAUE op lit es) =
+    case flat lit id es of (lit', es') -> CAUE op lit' es'
     where
       -- Wherever a nested CA expression with the same operator appears,
       -- include its terms in the list
-      flat :: [Expr t] -> [Expr t]
-      flat (e:es) = case e
-                    of CAUE op2 lit2 es2
-                           | op == op2 -> LitE lit2 : es2 ++ flat es
-                       _ -> e:flat es
-      flat []     = []
+      flat lit hd (e:es) =
+          case e
+          of CAUE op2 lit2 es2
+                 | op == op2 -> let lit' = evalCAUOp op [lit, lit2]
+                                in flat lit' hd (es2 ++ es)
+             _ -> flat lit (hd . (e:)) es
+      flat lit hd [] = (lit, hd [])
+
 flatten e = e
 
 -- Partially evaluate an expression
