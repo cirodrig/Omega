@@ -515,7 +515,8 @@ evalPred IsGEZ  = (0 <=)
 appPrec = 10
 mulPrec = 7
 addPrec = 6
-cmpPrec = 5                     -- Less-than, equal
+cmpPrec = 4                     -- Less-than, equal
+andPrec = 3
 lamPrec = 0
 
 -- An environment for showing expressions.
@@ -594,7 +595,8 @@ showsBoolExprPrec env n expression =
     case expression
     of CAUE Conj lit es
            | lit        -> let texts = map (showsBoolExprPrec env 0) es
-                           in texts `showSepBy` showString " |&&| "
+                           in showParen (n >= andPrec) $
+                              texts `showSepBy` showString " |&&| "
            | otherwise  -> showString "falseE"
        CAUE Disj lit es
            | lit        -> showString "trueE"
