@@ -603,13 +603,8 @@ showsBoolExprPrec env n expression =
            | otherwise  -> let texts = map (showsBoolExprPrec env 0) es
                            in showParen (n >= appPrec) $
                               showString "disjE " . showsList texts
-       PredE IsGEZ e    -> showParen (n >= appPrec) $ showGEZ env e
-       PredE p e        -> let operator =
-                                   case p
-                                   of IsZero -> showString "isZeroE "
-                                      IsGEZ  -> showString "isNonnegativeE "
-                           in showParen (n >= appPrec) $
-                              operator . showsIntExprPrec env appPrec e
+       PredE IsGEZ e    -> showGEZ env n e
+       PredE IsZero e   -> showEQZ env n e
        NotE e           -> showString "notE " . showsBoolExprPrec env appPrec e
        LitE True        -> showString "trueE"
        LitE False       -> showString "falseE"
@@ -624,8 +619,15 @@ showsBoolExprPrec env n expression =
 -- Use ">" if it gets rid of a term, otherwise use ">=".
 -- If the left side of the inequality is an integer literal,
 -- then move it to the right 
-showGEZ :: ShowsEnv -> IntExpr -> ShowS
-showGEZ env (CAUE Sum lit es) =
+showGEZ :: ShowsEnv -> Int -> IntExpr -> ShowS
+showGEZ env prec e =
+    showParen (prec >= cmpPrec) $
+    case e
+    of LitE n          -> showGEZ' env n []
+       CAUE Sum lit es -> showGEZ' env lit es
+       _               -> showGEZ' env 0 [e]
+
+showGEZ' env lit es =
     -- Partition into terms that will go on the left (positive) and right
     -- (negative) sides of the inequality.  Try to get rid of a '1' by
     -- using a greater-than sign.
@@ -662,8 +664,22 @@ showGEZ env (CAUE Sum lit es) =
       le = showString " |<=| "
       lt = showString " |<| "
 
-showGEZ env (LitE n) = showGEZ env (CAUE Sum n [])
-showGEZ env e = showGEZ env (CAUE Sum 0 [e])
+
+-- Show a comparison-to-zero prettily.
+-- If it is a summation with only one term, then we show it as
+--   "term |==| literal"
+-- Otherwise we show it as an application of "isZeroE".
+showEQZ :: ShowsEnv -> Int -> IntExpr -> ShowS
+showEQZ env prec (CAUE Sum lit [e]) =
+    showParen (prec >= cmpPrec) $
+    (showsIntExprPrec env cmpPrec e .
+     showString " |==| " .
+     showsIntExprPrec env cmpPrec (LitE lit)
+    )
+
+showEQZ env prec e =
+    showParen (prec >= appPrec) $
+    showString "isZeroE " . showsIntExprPrec env appPrec e
 
 -- Partition a sum term based on the sign it is displayed with.
 -- Negative-signed terms are multiplied by -1 to make them positive.
