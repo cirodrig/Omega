@@ -1,4 +1,4 @@
-Cabal-Version:		>= 1.2.3 && < 1.8
+Cabal-Version:		>= 1.2.3 && < 1.7
 Name:			Omega
 Version:		0.2.1
 Build-Type:		Custom
