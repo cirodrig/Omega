@@ -31,6 +31,7 @@ useInstalledOmegaFlagPath = "build" </> "UseInstalledOmega"
 
 writeUseInstalledOmegaFlag :: Bool -> IO ()
 writeUseInstalledOmegaFlag b = do
+  createDirectoryIfMissing False "build"
   writeFile useInstalledOmegaFlagPath (show b)
 
 readUseInstalledOmegaFlag :: IO Bool
