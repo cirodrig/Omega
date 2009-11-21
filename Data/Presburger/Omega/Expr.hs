@@ -267,36 +267,31 @@ e |>=| f = isNonnegativeE (e |-| f)
 e |<=| f = f |>=| e
 
 -- | Build a universally quantified formula.
-forallE :: (Var -> Exp t) -> Exp t
+forallE :: (Var -> BoolExp) -> BoolExp
 forallE f = wrapExpr $ QuantE Forall $ getExpr $ withFreshVariable f
 
 -- | Build an existentially quantified formula.
-existsE :: (Var -> Exp t) -> Exp t
+existsE :: (Var -> BoolExp) -> BoolExp
 existsE f = wrapExpr $ QuantE Exists $ getExpr $ withFreshVariable f
 
 -- | Reduce an integer expression to a value.  Values for free variables
 -- are provided explicitly in an environment.
---
--- Note, the current way of handling quantification isn't so useful and will
--- change soon.
 foldIntExp :: forall a.
               (Int -> [a] -> a)   -- ^ summation
            -> (Int -> [a] -> a)   -- ^ multiplication
-           -> (Quantifier -> (a -> a) -> a) -- ^ quantification
            -> (Int -> a)          -- ^ integer literal
            -> [a]                 -- ^ environment
            -> (IntExp -> a)
-foldIntExp sumE prodE quantE litE env expression =
-    foldIntExp' sumE prodE quantE litE env (getSimplifiedExpr expression)
+foldIntExp sumE prodE litE env expression =
+    foldIntExp' sumE prodE litE env (getSimplifiedExpr expression)
 
 foldIntExp' :: forall a.
                (Int -> [a] -> a)   -- ^ summation
             -> (Int -> [a] -> a)   -- ^ multiplication
-            -> (Quantifier -> (a -> a) -> a) -- ^ quantification
             -> (Int -> a)          -- ^ integer literal
             -> [a]                -- ^ environment
             -> (Expr Int -> a)
-foldIntExp' sumE prodE quantE litE env expression = rec env expression
+foldIntExp' sumE prodE litE env expression = rec env expression
     where
       rec :: forall. [a] -> Expr Int -> a
       rec env expression =
@@ -306,10 +301,6 @@ foldIntExp' sumE prodE quantE litE env expression = rec env expression
              LitE n           -> litE n
              VarE (Bound i)   -> env `index` i
              VarE _           -> error "Expr.fold: unexpected variable"
-             QuantE q e       -> quantE q (quantifier env e)
-
-      -- Handle a quantifier: the variable gets the specified value
-      quantifier env e value = rec (value:env) e
 
       -- Like (!!), but throws a useful error message
       index (x:_)  0 = x
@@ -318,12 +309,9 @@ foldIntExp' sumE prodE quantE litE env expression = rec env expression
 
 -- | Reduce a boolean expression to a value.  Values for free variables
 -- are provided explicitly in an environment.
--- Note, the current way of handling quantification isn't so useful and will
--- change soon.
 foldBoolExp :: forall a b.
                (Int -> [b] -> b)  -- ^ summation
             -> (Int -> [b] -> b)  -- ^ multiplication
-            -> (Quantifier -> (b -> b) -> b) -- ^ quantification
             -> (Int -> b)         -- ^ integer literal
             -> ([a] -> a)         -- ^ disjunction
             -> ([a] -> a)         -- ^ conjunction
@@ -334,7 +322,7 @@ foldBoolExp :: forall a b.
             -> a                  -- ^ false
             -> [b]                -- ^ environment
             -> (BoolExp -> a)
-foldBoolExp sumE prodE quantIE litE orE andE notE quantE predE trueE falseE
+foldBoolExp sumE prodE litE orE andE notE quantE predE trueE falseE
             env expression = rec env (getSimplifiedExpr expression)
     where
       rec :: forall. [b] -> Expr Bool -> a
@@ -354,7 +342,7 @@ foldBoolExp sumE prodE quantIE litE orE andE notE quantE predE trueE falseE
       quantifier env e value = rec (value:env) e
 
       -- Call foldIntExp for integer expressions
-      integral env e = foldIntExp' sumE prodE quantIE litE env e
+      integral env e = foldIntExp' sumE prodE litE env e
 
 -- | Use a fresh variable in an expression.  After the expression is
 -- constructed, rename/adjust variable indices so that the fresh variable
@@ -390,7 +378,7 @@ data Expr t where
     VarE :: !Var -> Expr Int
 
     -- An expression quantified over an integer variable
-    QuantE :: !Quantifier -> Expr t -> Expr t
+    QuantE :: !Quantifier -> Expr Bool -> Expr Bool
 
 type IntExpr = Expr Int
 type BoolExpr = Expr Bool
@@ -600,8 +588,6 @@ showsIntExprPrec env n expression =
        LitE l           -> showParen (n >= appPrec) $
                            showsInt l
        VarE v           -> showsVarPrec env n v
-       QuantE q e       -> showParen (n >= appPrec) $
-                           showQuantifier showsIntExprPrec env q e
 
 showsBoolExprPrec :: ShowsEnv -> Int -> BoolExpr -> ShowS
 showsBoolExprPrec env n expression =
@@ -969,9 +955,6 @@ lookupVar _ [] = error "lookupVar: variable index out of range"
 -- internally simplifies expressions to sum-of-products form, so complex
 -- expressions are valid as long as each simplified product has at most
 -- one variable.
--- The library currently cannot create a set or relation if any
--- integer expressions contain quantifiers, but this restriction could be
--- lifted in the future.
 
 expToFormula :: [VarHandle]     -- ^ Free variables
              -> BoolExp         -- ^ Expression to convert
