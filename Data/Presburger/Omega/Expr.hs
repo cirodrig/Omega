@@ -662,6 +662,9 @@ showGEZ env (CAUE Sum lit es) =
       le = showString " |<=| "
       lt = showString " |<| "
 
+showGEZ env (LitE n) = showGEZ env (CAUE Sum n [])
+showGEZ env e = showGEZ env (CAUE Sum 0 [e])
+
 -- Partition a sum term based on the sign it is displayed with.
 -- Negative-signed terms are multiplied by -1 to make them positive.
 partitionSumBySign n es =
