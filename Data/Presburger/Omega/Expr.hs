@@ -527,6 +527,7 @@ evalPred IsGEZ  = (0 <=)
 appPrec = 10
 mulPrec = 7
 addPrec = 6
+cmpPrec = 5                     -- Less-than, equal
 lamPrec = 0
 
 -- An environment for showing expressions.
@@ -614,6 +615,7 @@ showsBoolExprPrec env n expression =
            | otherwise  -> let texts = map (showsBoolExprPrec env 0) es
                            in showParen (n >= appPrec) $
                               showString "disjE " . showsList texts
+       PredE IsGEZ e    -> showParen (n >= appPrec) $ showGEZ env e
        PredE p e        -> let operator =
                                    case p
                                    of IsZero -> showString "isZeroE "
@@ -625,6 +627,69 @@ showsBoolExprPrec env n expression =
        LitE False       -> showString "falseE"
        QuantE q e       -> showParen (n >= appPrec) $
                            showQuantifier showsBoolExprPrec env q e
+
+-- Show an inequality prettily.
+-- First, eliminate minus-signs.
+-- Then, choose between the ">", ">=", or "<" for displaying a term.
+--
+-- If one side of the inequality is a literal, it 
+-- Use ">" if it gets rid of a term, otherwise use ">=".
+-- If the left side of the inequality is an integer literal,
+-- then move it to the right 
+showGEZ :: ShowsEnv -> IntExpr -> ShowS
+showGEZ env (CAUE Sum lit es) =
+    -- Partition into terms that will go on the left (positive) and right
+    -- (negative) sides of the inequality.  Try to get rid of a '1' by
+    -- using a greater-than sign.
+    case partitionSumBySign lit es
+    of (-1, neg, pos) -> balanceInequality False 0 neg pos
+       (n, neg, pos)  -> balanceInequality True n neg pos
+    where
+      -- If the left side is empty, flip the direction of the inequality
+      balanceInequality True n neg [] =
+          showInequality le (negate n) [] neg
+
+      balanceInequality False n neg [] =
+          showInequality lt (negate n) [] neg
+
+      balanceInequality True n neg pos =
+          showInequality ge n neg pos
+          
+      balanceInequality False n neg pos =
+          showInequality gt n neg pos
+
+      -- Show the inequality.  Put the literal on whichever side makes it
+      -- positive.
+      showInequality symbol lit neg pos =
+          let (pos', neg') =
+                  if lit >= 0
+                  then (CAUE Sum lit pos, CAUE Sum 0 neg)
+                  else (CAUE Sum 0 pos, CAUE Sum (negate lit) neg)
+          in showsIntExprPrec env cmpPrec pos' .
+             symbol .
+             showsIntExprPrec env cmpPrec neg'
+
+      ge = showString " |>=| "
+      gt = showString " |>| "
+      le = showString " |<=| "
+      lt = showString " |<| "
+
+-- Partition a sum term based on the sign it is displayed with.
+-- Negative-signed terms are multiplied by -1 to make them positive.
+partitionSumBySign n es =
+    case partition hasNegativeMultiplier es
+    of (neg, pos) -> let neg' = map negateMultiplier neg
+                     in (n, neg', pos)
+    where
+      hasNegativeMultiplier :: IntExpr -> Bool
+      hasNegativeMultiplier (CAUE Prod n es) = n < 0
+      hasNegativeMultiplier (LitE n) = n < 0
+      hasNegativeMultiplier _ = False
+
+      negateMultiplier :: IntExpr -> IntExpr
+      negateMultiplier (CAUE Prod n es) = CAUE Prod (negate n) es
+      negateMultiplier (LitE n) = LitE (negate n)
+      negateMultiplier _ = error "partitionSumBySign: unexpected term"
 
 -- Show a sum term
 showSum env lit es =
