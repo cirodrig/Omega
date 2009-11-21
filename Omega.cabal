@@ -19,6 +19,8 @@ Extra-Source-Files:
 	aclocal.m4
 	configure.ac
 	Makefile.in
+	src/C_omega.cc
+	src/C_omega.h
 	src/the-omega-project.tar.gz
 Extra-Tmp-Files:	build/C_omega.o
 
