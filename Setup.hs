@@ -142,8 +142,7 @@ buildOmega pkgDesc lbi userhooks flags = do
 
   -- Get 'ar' and 'ld' programs
   let verb = fromFlagOrDefault Verbosity.normal $ buildVerbosity flags
-  (arPgm, _) <- requireProgram verb arProgram AnyVersion (withPrograms lbi)
-  let runAr = rawSystemProgram verb arPgm
+  let runAr = rawSystemProgramConf verb arProgram (withPrograms lbi)
 
   -- Build the C++ source file (and Omega library, if configured)
   -- Makefile's behavior is controlled by output of 'configure'
@@ -214,9 +213,10 @@ cleanOmega pkgDesc mlbi userhooks flags = do
   let verb = fromFlagOrDefault Verbosity.normal $ cleanVerbosity flags
 
   -- run 'make clean', which will clean the Omega library if appropriate
-  case mlbi of
-    Just lbi -> rawSystemProgramConf verb makeProgram (withPrograms lbi) ["clean"]
-    Nothing -> return ()
+  pgmConf <- configureProgram verb makeProgram defaultProgramConfiguration
+  makeExists <- doesFileExist "Makefile"
+  when makeExists $
+       rawSystemProgramConf verb makeProgram pgmConf ["clean"]
 
   -- Clean extra files if we don't need to save configuration
   -- (Other temp files are automatically cleaned)
