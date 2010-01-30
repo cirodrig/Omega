@@ -65,15 +65,21 @@ noSharedLib =
 -------------------------------------------------------------------------------
 -- Configuration
 
-configureOmega pkgDesc flags = do
+configureOmega pkgDesc originalFlags = do
+  -- Disable unsupported configuratoins
+  when (flagToMaybe (configGHCiLib originalFlags) == Just True) $
+       notice verbosity "** Sorry, this package does not support GHCi.\n\
+                        \** Disabling GHCi library output."
+
+  when (flagToMaybe (configSharedLib originalFlags) == Just True) $
+       notice verbosity "** Sorry, this package does not support \
+                        \shared library output.\n\
+                        \** Disabling shared library output."
+
   -- Run Cabal configure
   lbi <- confHook simpleUserHooks pkgDesc flags
 
-  -- Detect and report error on unsupported configurations
-  when (withGHCiLib lbi) noGHCiLib
-
-  when (withSharedLib lbi) noSharedLib
-
+  -- Configure programs
   let verb = fromFlagOrDefault Verbosity.normal $ configVerbosity flags
       cfg = withPrograms lbi
       runAutoconf = do rawSystemProgramConf verb autoconfProgram cfg []
@@ -88,6 +94,11 @@ configureOmega pkgDesc flags = do
   return lbi
 
     where
+      verbosity = fromFlag $ configVerbosity originalFlags
+      flags = originalFlags { configSharedLib = toFlag False
+                            , configGHCiLib = toFlag False
+                            }
+
       -- Will build the Omega library?
       useInstalledOmega = fromMaybe False $
                           lookup (FlagName "useinstalledomega") $
