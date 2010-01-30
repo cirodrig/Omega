@@ -1,6 +1,6 @@
 Cabal-Version:		>= 1.2.3 && < 1.9
 Name:			Omega
-Version:		0.2.1
+Version:		0.2.2
 Build-Type:		Custom
 License:		BSD3
 License-File:		LICENSE
@@ -11,8 +11,9 @@ Synopsis:		Operations on Presburger arithmetic formulae
 Description:
         This package provides tools for manipulating sets and relations
         whose members can be represented compactly as a Presburger
-        arithmetic formula.  The primary interface can be found
-        in "Data.Presburger.Omega.Set" and "Data.Presburger.Omega.Rel".
+        arithmetic formula.  Formulae are simplified and solved by the
+        Omega Library.  The primary interface can be found in
+        "Data.Presburger.Omega.Set" and "Data.Presburger.Omega.Rel".
 Category:		Data
 Extra-Source-Files:
 	README
