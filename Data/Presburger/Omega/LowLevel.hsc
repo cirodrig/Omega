@@ -804,24 +804,35 @@ composition rel1 rel2
           fromPtr =<< withPresburger2 rel1 rel2 hsw_composition
     | otherwise = error "composition: argument arities do not agree"
 
+-- | Restrict the domain of a relation.
+--   If @domain r@ is @d@, then @domain =<< restrictDomain r s@
+--   is @intersection d s@.
 restrictDomain :: OmegaRel -> OmegaSet -> IO OmegaRel
 restrictDomain rel1 set
     | length (rDom rel1) == length (sDom set) =
           fromPtr =<< withPresburger2 rel1 set hsw_restrict_domain
     | otherwise = error "restrictDomain: argument arities do not agree"
 
+-- | Restrict the range of a relation.
+--   If @range r@ is @d@, then @range =<< restrictRange r s@
+--   is @intersection d s@.
 restrictRange :: OmegaRel -> OmegaSet -> IO OmegaRel
 restrictRange rel1 set
     | length (rDom rel1) == length (sDom set) =
           fromPtr =<< withPresburger2 rel1 set hsw_restrict_range
     | otherwise = error "restrictRange: argument arities do not agree"
 
+-- | Compute the difference of two relations or sets.
+--   The members of @difference x y@ are the members of @x@ that are not
+--   members of @y@.
 difference :: Presburger a => a -> a -> IO a
 difference rel1 rel2
     | sameArity rel1 rel2 =
         fromPtr =<< withPresburger2 rel1 rel2 hsw_difference
     | otherwise = error "difference: arguments have different arities"
 
+-- | Compute the cross product of two sets.
+--   The cross product relates every element of @s@ to every element of @y@.
 crossProduct :: OmegaSet -> OmegaSet -> IO OmegaRel
 crossProduct set1 set2 =
     fromPtr =<< withPresburger2 set1 set2 hsw_cross_product

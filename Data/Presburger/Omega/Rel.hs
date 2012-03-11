@@ -243,12 +243,15 @@ obviousTautology = useRel L.obviousTautology
 definiteTautology :: Rel -> Bool
 definiteTautology = useRel L.definiteTautology
 
+-- | True if the relation has no UNKNOWN constraints.
 exact :: Rel -> Bool
 exact = useRel L.exact
 
+-- | True if the relation has UNKNOWN constraints.
 inexact :: Rel -> Bool
 inexact = useRel L.inexact
 
+-- | True if the relation is entirely UNKNOWN.
 unknown :: Rel -> Bool
 unknown = useRel L.unknown
 
@@ -295,11 +298,17 @@ composition s1 s2 =
 join :: Rel -> Rel -> Rel
 join r1 r2 = composition r2 r1
 
+-- | Restrict the domain of a relation.
+--
+-- > domain (restrictDomain r s) === intersection (domain r) s
 restrictDomain :: Rel -> Set -> Rel
 restrictDomain r s = unsafePerformIO $
   omegaRelToRel (relInpDim r) (relOutDim r) =<<
   L.restrictDomain (relOmegaRel r) (Set.toOmegaSet s)
 
+-- | Restrict the range of a relation.
+--
+-- > range (restrictRange r s) === intersection (range r) s
 restrictRange :: Rel -> Set -> Rel
 restrictRange r s = unsafePerformIO $
   omegaRelToRel (relInpDim r) (relOutDim r) =<<
@@ -332,18 +341,26 @@ gist :: Effort -> Rel -> Rel -> Rel
 gist effort r1 r2 =
     useRel2Rel (L.gist effort) (relInpDim r1) (relOutDim r1) r1 r2
 
+-- | Get the transitive closure of a relation.  In some cases, the transitive
+-- closure cannot be computed exactly, in which case a lower bound is
+-- returned.
 transitiveClosure :: Rel -> Rel
 transitiveClosure r =
     useRelRel L.transitiveClosure (relInpDim r) (relOutDim r) r
 
+-- | Invert a relation, swapping the domain and range.
 inverse :: Rel -> Rel
 inverse s = useRelRel L.inverse (relOutDim s) (relInpDim s) s
 
+-- | Get the complement of a relation.
 complement :: Rel -> Rel
 complement s = useRelRel L.complement (relInpDim s) (relOutDim s) s
 
 deltas :: Rel -> Set
 deltas = useRel (\wrel -> Set.fromOmegaSet =<< L.deltas wrel)
 
+-- | Approximate a relation by allowing all existentially quantified
+-- variables to take on rational values.  This allows these variables to be
+-- eliminated from the formula.
 approximate :: Rel -> Rel
 approximate s = useRelRel L.approximate (relInpDim s) (relOutDim s) s

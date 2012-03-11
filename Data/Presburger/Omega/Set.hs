@@ -150,9 +150,13 @@ predicate = setExp
 toOmegaSet :: Set -> OmegaSet
 toOmegaSet = setOmegaSet
 
+-- | Compute the upper bound of a set by setting all UNKNOWN
+--   constraints to true.
 upperBound :: Set -> Set
 upperBound s = useSetSet L.upperBound (setDim s) s
 
+-- | Compute the lower bound of a set by setting all UNKNOWN
+--   constraints to false.
 lowerBound :: Set -> Set
 lowerBound s = useSetSet L.lowerBound (setDim s) s
 
@@ -168,12 +172,15 @@ obviousTautology = useSet L.obviousTautology
 definiteTautology :: Set -> Bool
 definiteTautology = useSet L.definiteTautology
 
+-- | True if the set has no UNKNOWN constraints.
 exact :: Set -> Bool
 exact = useSet L.exact
 
+-- | True if the set has UNKNOWN constraints.
 inexact :: Set -> Bool
 inexact = useSet L.inexact
 
+-- | True if the set is completely UNKNOWN.
 unknown :: Set -> Bool
 unknown = useSet L.unknown
 
