@@ -299,7 +299,7 @@ foldIntExp' sumE prodE litE env expression = rec env expression
           of CAUE Sum  lit es -> sumE lit $ map (rec env) es
              CAUE Prod lit es -> prodE lit $ map (rec env) es
              LitE n           -> litE n
-             VarE (Bound i)   -> env `index` i
+             VarE (Bound i)   -> env `genericIndex` i
              VarE _           -> error "Expr.fold: unexpected variable"
 
       -- Like (!!), but throws a useful error message
@@ -595,7 +595,7 @@ showsBoolExprPrec env n expression =
     case expression
     of CAUE Conj lit es
            | lit        -> let texts = map (showsBoolExprPrec env 0) es
-                           in showParen (n >= andPrec) $
+                           in showParen (n >= fromIntegral andPrec) $
                               texts `showSepBy` showString " |&&| "
            | otherwise  -> showString "falseE"
        CAUE Disj lit es
@@ -1105,4 +1105,5 @@ variablesWithinRange n e = check n $ getExpr e
             check' (VarE (Quantified _)) = quantifiedVar
             check' (QuantE _ e)          = check (n+1) e
 
+      quantifiedVar :: Bool
       quantifiedVar = error "variablesWithinRange: unexpected variable"

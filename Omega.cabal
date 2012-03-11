@@ -30,7 +30,7 @@ Flag UseInstalledOmega
   Default:		False
 
 Library
-  Build-Depends:	base >= 3 && < 4, containers
+  Build-Depends:	base >= 4 && < 5, containers
   Exposed-Modules:
         Data.Presburger.Omega.Expr
         Data.Presburger.Omega.LowLevel
