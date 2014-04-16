@@ -1,6 +1,6 @@
 
 import Control.Applicative
-import Control.Exception(bracket)
+import Control.Exception(IOException, catch, bracket)
 import Control.Monad
 import Data.Char
 import Data.Maybe
@@ -19,26 +19,18 @@ import System.IO
 import System.FilePath((</>), (<.>), takeExtension)
 import System.Process
 
--- Mimic the && command of 'sh'
-(>&&>) :: IO ExitCode -> IO ExitCode -> IO ExitCode
-cmd1 >&&> cmd2 = cmd1 >>= continue
-    where 
-      continue ExitSuccess = cmd2
-      continue returnCode  = return returnCode
+-- Recover from IO exceptions
+recover :: IO a -> IO a -> IO a
+f `recover` h = f `Control.Exception.catch` handler
+  where
+    handler e = let _ = e :: IOException
+                in h
+
+-------------------------------------------------------------------------------
+-- Filenames and constants
 
 -- Record whether we're building the Omega library here
 useInstalledOmegaFlagPath = "build" </> "UseInstalledOmega"
-
-writeUseInstalledOmegaFlag :: Bool -> IO ()
-writeUseInstalledOmegaFlag b = do
-  createDirectoryIfMissing False "build"
-  writeFile useInstalledOmegaFlagPath (show b)
-
-readUseInstalledOmegaFlag :: IO Bool
-readUseInstalledOmegaFlag = do
-  text <- readFile useInstalledOmegaFlagPath `catch`
-          \_ -> die "Configuration file missing; try reconfiguring"
-  return $! read text
 
 -- We will call 'autoconf' and 'make'
 autoconfProgram = simpleProgram "autoconf"
@@ -54,6 +46,13 @@ omegaLibPath = "src" </> "the-omega-project" </> "omega_lib" </> "obj" </> "libo
 -- Unpack the Omega library into this directory
 omegaUnpackPath = "build" </> "unpack_omega"
 
+-- Extra files produced by configuration
+configFiles = ["configure", "config.log", "config.status", "Makefile",
+               useInstalledOmegaFlagPath]
+
+-------------------------------------------------------------------------------
+-- Helpful IO procedures
+
 noGHCiLib =
     die "Sorry, this package does not support GHCi.\n\
         \Please configure with --disable-library-for-ghci to disable."
@@ -61,6 +60,29 @@ noGHCiLib =
 noSharedLib =
     die "Sorry, this package does not support shared library output.\n\
         \Please configure with --disable-shared to disable."
+
+writeUseInstalledOmegaFlag :: Bool -> IO ()
+writeUseInstalledOmegaFlag b = do
+  createDirectoryIfMissing False "build"
+  writeFile useInstalledOmegaFlagPath (show b)
+
+readUseInstalledOmegaFlag :: IO Bool
+readUseInstalledOmegaFlag = do
+  text <- readFile useInstalledOmegaFlagPath `recover`
+          die "Configuration file missing; try reconfiguring"
+  return $! read text
+
+-- Attempt to remove a file, ignoring errors
+lenientRemoveFile f = removeFile f `recover` return ()
+
+lenientRemoveFiles = mapM_ lenientRemoveFile
+
+-- Attempt to remove a directory and its contents
+-- (one level of recursion only), ignoring errors
+lenientRemoveDirectory f = do
+  b <- doesDirectoryExist f
+  when b $ do lenientRemoveFiles . map (f </>) =<< getDirectoryContents f
+              removeDirectory f `recover` return ()
 
 -------------------------------------------------------------------------------
 -- Configuration
@@ -76,25 +98,19 @@ configureOmega pkgDesc originalFlags = do
                         \shared library output.\n\
                         \** Disabling shared library output."
 
-  -- Run Cabal configure
+  -- Run Cabal configuration
   lbi <- confHook simpleUserHooks pkgDesc flags
 
-  -- Configure programs
-  let verb = fromFlagOrDefault Verbosity.normal $ configVerbosity flags
-      cfg = withPrograms lbi
-      runAutoconf = do rawSystemProgramConf verb autoconfProgram cfg []
-                       return ExitSuccess
-      
-  -- Run autoconf configure
-  runAutoconf >&&> runConfigure lbi
+  -- Run autoconf configuration
+  runAutoconf lbi
+  runConfigure lbi
 
   -- Save this flag for later use
   writeUseInstalledOmegaFlag useInstalledOmega
 
   return lbi
-
     where
-      verbosity = fromFlag $ configVerbosity originalFlags
+      verbosity = fromFlagOrDefault Verbosity.normal $ configVerbosity flags
       flags = originalFlags { configSharedLib = toFlag False
                             , configGHCiLib = toFlag False
                             }
@@ -104,6 +120,10 @@ configureOmega pkgDesc originalFlags = do
                           lookup (FlagName "useinstalledomega") $
                           configConfigurationsFlags flags
 
+      -- Configure programs
+      runAutoconf lbi = do
+        runDbProgram verbosity autoconfProgram (withPrograms lbi) []
+
       -- Run 'configure' with the extra arguments that were passed to
       -- Setup.hs
       runConfigure lbi = do
@@ -112,7 +132,7 @@ configureOmega pkgDesc originalFlags = do
         let opts = autoConfigureOptions lbi useInstalledOmega
             configProgramName = currentDir </> "configure"
 
-        rawSystem configProgramName opts
+        rawSystemExit verbosity configProgramName opts
 
 -- Configuration: extract options to pass to 'configure'
 autoConfigureOptions :: LocalBuildInfo -> Bool -> [String]
@@ -153,11 +173,11 @@ buildOmega pkgDesc lbi userhooks flags = do
 
   -- Get 'ar' and 'ld' programs
   let verb = fromFlagOrDefault Verbosity.normal $ buildVerbosity flags
-  let runAr = rawSystemProgramConf verb arProgram (withPrograms lbi)
+  let runAr = runDbProgram verb arProgram (withPrograms lbi)
 
   -- Build the C++ source file (and Omega library, if configured)
   -- Makefile's behavior is controlled by output of 'configure'
-  rawSystemProgramConf verb makeProgram (withPrograms lbi) ["all"]
+  runDbProgram verb makeProgram (withPrograms lbi) ["all"]
 
   -- Add other object files to libraries
   let pkgId   = package $ localPkgDescr lbi
@@ -227,7 +247,7 @@ cleanOmega pkgDesc mlbi userhooks flags = do
   pgmConf <- configureProgram verb makeProgram defaultProgramConfiguration
   makeExists <- doesFileExist "Makefile"
   when makeExists $
-       rawSystemProgramConf verb makeProgram pgmConf ["clean"]
+    runDbProgram verb makeProgram pgmConf ["clean"]
 
   -- Clean extra files if we don't need to save configuration
   -- (Other temp files are automatically cleaned)
@@ -237,24 +257,6 @@ cleanOmega pkgDesc mlbi userhooks flags = do
 
   -- Do default clean procedure
   cleanHook simpleUserHooks pkgDesc mlbi userhooks flags
-
-    where
-      -- Attempt to remove a file, ignoring errors
-      lenientRemoveFile f =
-          removeFile f `catch` \_ -> return ()
-
-      lenientRemoveFiles = mapM_ lenientRemoveFile
-
-      -- Attempt to remove a directory and its contents
-      -- (one level of recursion only), ignoring errors
-      lenientRemoveDirectory f = do
-        b <- doesDirectoryExist f
-        when b $ do lenientRemoveFiles . map (f </>) =<< getDirectoryContents f
-                    removeDirectory f `catch` \_ -> return ()
-
-      -- Extra files produced by configuration
-      configFiles = ["configure", "config.log", "config.status", "Makefile",
-                     useInstalledOmegaFlagPath]
 
 -------------------------------------------------------------------------------
 -- Hooks
