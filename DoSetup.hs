@@ -27,10 +27,13 @@ import Data.Char
 import Data.Maybe
 import Distribution.PackageDescription
 import Distribution.Simple
+import Distribution.Simple.Build
 import Distribution.Simple.BuildPaths
 import Distribution.Simple.GHC
 import Distribution.Simple.LocalBuildInfo
+import Distribution.Simple.PreProcess
 import Distribution.Simple.Program
+import Distribution.Simple.Program.GHC
 import Distribution.Simple.Setup
 import Distribution.Simple.Utils
 import qualified Distribution.Verbosity as Verbosity
@@ -194,7 +197,12 @@ autoConfigureOptions localBuildInfo useInstalledOmega =
 
 buildOmega pkgDesc lbi userhooks flags = do
 
+  let verb = fromFlagOrDefault Verbosity.normal $ buildVerbosity flags
   useInstalledOmega <- readUseInstalledOmegaFlag
+
+  -- Build the C++ source file (and Omega library, if configured)
+  -- Makefile's behavior is controlled by output of 'configure'
+  runDbProgram verb makeProgram (withPrograms lbi) ["all"]
 
   -- Custom build procedure for test suite
   buildTestSuites useInstalledOmega pkgDesc lbi flags
@@ -204,12 +212,7 @@ buildOmega pkgDesc lbi userhooks flags = do
   buildHook simpleUserHooks pkgDesc (hideTestComponents lbi) userhooks flags
 
   -- Get 'ar' and 'ld' programs
-  let verb = fromFlagOrDefault Verbosity.normal $ buildVerbosity flags
   let runAr = runDbProgram verb arProgram (withPrograms lbi)
-
-  -- Build the C++ source file (and Omega library, if configured)
-  -- Makefile's behavior is controlled by output of 'configure'
-  runDbProgram verb makeProgram (withPrograms lbi) ["all"]
 
   -- Add other object files to libraries
   let pkgId   = package $ localPkgDescr lbi
@@ -262,11 +265,16 @@ isTestComponent :: ComponentName -> Bool
 isTestComponent (CTestName {}) = True
 isTestComponent _              = False
 
-genericGhcOptions verb lbi bi clbi build_path =
+-- | Get command line options for invoking GHC
+genericGhcOptions :: Version -> Verbosity.Verbosity -> LocalBuildInfo
+                  -> BuildInfo -> ComponentLocalBuildInfo -> FilePath
+                  -> [String]
+
+genericGhcOptions ver verb lbi bi clbi build_path =
 #if defined(OLD_GHC_OPTIONS)
   ghcOptions lbi bi clbi cabalBuildPath
 #elif defined(NEW_GHC_OPTIONS)
-  componentGhcOptions verb lbi bi clbi cabalBuildPath
+  renderGhcOptions ver $ componentGhcOptions verb lbi bi clbi cabalBuildPath
 #else
 #error
 #endif
@@ -274,8 +282,16 @@ genericGhcOptions verb lbi bi clbi build_path =
 buildTestSuites useInstalledOmega pkgDesc lbi flags =
   withTestLBI pkgDesc lbi $ \test clbi -> do
     let verb = fromFlagOrDefault Verbosity.normal $ buildVerbosity flags
-        bi = testBuildInfo test
-        opts = genericGhcOptions verb lbi bi clbi cabalBuildPath
+
+    -- Run preprocessors
+    writeAutogenFiles verb pkgDesc lbi
+    preprocessComponent pkgDesc (CTest test) lbi False verb knownSuffixHandlers
+
+    -- Run compiler
+    (ghcProg, ghcVersion) <- configureGHC verb lbi
+
+    let bi = testBuildInfo test
+        opts = genericGhcOptions ghcVersion verb lbi bi clbi cabalBuildPath
 
         build_opts = ["--make", "-o",
                       cabalBuildPath </> testName test </> testName test]
@@ -293,8 +309,14 @@ buildTestSuites useInstalledOmega pkgDesc lbi flags =
         all_opts = build_opts ++ opts ++ local_link_opt ++ input_opts
 
     createDirectoryIfMissing True (cabalBuildPath </> testName test)
-    (ghcProg, _) <- requireProgram verb ghcProgram (withPrograms lbi)
     runProgram verb ghcProg all_opts
+
+configureGHC verb lbi = do
+  (ghcProg, _) <- requireProgram verb ghcProgram (withPrograms lbi)
+  ghcVersion <- case programVersion ghcProg
+                of Just x  -> return x
+                   Nothing -> die "Can't determine GHC vesion"
+  return (ghcProg, ghcVersion)
 
 -- Transfer the contents of one archive to another
 transferArFiles verb runAr src dst = do
