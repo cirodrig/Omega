@@ -24,6 +24,7 @@ Extra-Source-Files:
 	src/C_omega.h
 	src/the-omega-project.tar.gz
 Extra-Tmp-Files:	build/C_omega.o
+Tested-With:            GHC ==7.4.1, GHC ==7.6.3
 
 Flag UseInstalledOmega
   Description:		Link to a preinstalled version of the Omega library

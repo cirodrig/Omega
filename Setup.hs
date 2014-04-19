@@ -6,7 +6,6 @@ import Control.Monad
 import Data.Char
 import Distribution.Simple.Utils(cabalVersion)
 import Distribution.Version(Version(..))
-import Text.ParserCombinators.ReadP
 import System.Environment
 import System.Exit
 import System.Process
