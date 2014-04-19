@@ -33,7 +33,9 @@ import Distribution.Simple.GHC
 import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.PreProcess
 import Distribution.Simple.Program
+#ifdef NEW_GHC_OPTIONS
 import Distribution.Simple.Program.GHC
+#endif
 import Distribution.Simple.Setup
 import Distribution.Simple.Utils
 import qualified Distribution.Verbosity as Verbosity
