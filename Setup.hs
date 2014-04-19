@@ -19,11 +19,12 @@ cabalVersionCPPFlags = [major_flag, minor_flag]
     major_flag = "-DCABAL_MAJOR=" ++ show major
     minor_flag = "-DCABAL_MINOR=" ++ show minor
 
+outputDir = "dist/setup"
 setupPath = "dist/setup/do-setup"
 
 buildSetup = do
   let flags = ["--make", "-XCPP"] ++ cabalVersionCPPFlags ++
-              ["DoSetup.hs", "-o", setupPath]
+              ["DoSetup.hs", "-outputdir", outputDir, "-o", setupPath]
   ec <- rawSystem "ghc" flags
   unless (ec == ExitSuccess) $
     fail "Error occured when building the setup script"
