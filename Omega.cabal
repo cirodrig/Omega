@@ -7,11 +7,11 @@ License-File:		LICENSE
 Author:			Christopher Rodrigues
 Maintainer:		cirodrig@illinois.edu
 Stability:		Alpha
-Synopsis:		Operations on Presburger arithmetic formulae
+Synopsis:		Integer sets and relations using Presburger arithmetic
 Description:
-        This package provides sets of and relations on integer tuples.
-        A set's or relation's elements are represented compactly by
-        Presburger arithmetic formulae.
+        Sets of integer tuples and relations on integer tuples.
+        Sets and relations are represented compactly by storing their
+        characteristic function as a Presburger arithmetic formula.
         Formulae are simplified and solved by the Omega Library.
         The primary interface can be found in
         "Data.Presburger.Omega.Set" and "Data.Presburger.Omega.Rel".
