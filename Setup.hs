@@ -12,24 +12,20 @@ import System.Exit
 import System.Process
 
 -- | Pick a CPP flag based on the Cabal library version
-cabalVersionCPPFlag :: IO String
-cabalVersionCPPFlag
-  | v == (1,14)                = return "-DCABAL_1_14"
-  | v >= (1,16) && v <= (1,18) = return "-DCABAL_1_16"
-  | v > (1,18)                 = do putStrLn "Warning: unsupported Cabal library version"
-                                    return "-DCABAL_1_16"
-  | otherwise                  = fail "Unrecognized Cabal library"
+cabalVersionCPPFlags :: [String]
+cabalVersionCPPFlags = [major_flag, minor_flag]
   where
-    v = case cabalVersion
-        of Version {versionBranch = major : minor : _} -> (major, minor)
+    major:minor:_ = versionBranch cabalVersion
+
+    major_flag = "-DCABAL_MAJOR=" ++ show major
+    minor_flag = "-DCABAL_MINOR=" ++ show minor
 
 setupPath = "dist/setup/do-setup"
 
 buildSetup = do
-  cpp_flag <- cabalVersionCPPFlag
-
-  ec <- rawSystem "ghc" ["--make", "-XCPP", cpp_flag,
-                         "DoSetup.hs", "-o", setupPath]
+  let flags = ["--make", "-XCPP"] ++ cabalVersionCPPFlags ++
+              ["DoSetup.hs", "-o", setupPath]
+  ec <- rawSystem "ghc" flags
   unless (ec == ExitSuccess) $
     fail "Error occured when building the setup script"
 

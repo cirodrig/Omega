@@ -1,4 +1,25 @@
 
+-- Choose feature sets based on Cabal version
+#if CABAL_MAJOR == 1
+# if CABAL_MINOR <= 14
+#  define OLD_GHC_OPTIONS
+#  define OLD_LBI_COMPONENTS
+# elif CABAL_MINOR <= 16
+#  define NEW_GHC_OPTIONS
+#  define OLD_LBI_COMPONENTS
+# else
+#  if CABAL_MINOR > 18
+#   warning "New version of Cabal may not work correctly"
+#  endif
+#  define NEW_GHC_OPTIONS
+#  define NEW_LBI_COMPONENTS
+#  error "Unsupported Cabal version"
+# endif
+#else
+# error "Unsupported Cabal version"
+#endif
+    
+
 import Control.Applicative
 import Control.Exception(IOException, catch, bracket)
 import Control.Monad
@@ -219,21 +240,18 @@ buildOmega pkgDesc lbi userhooks flags = do
 
   return ()
 
-#if defined(CABAL_1_14)
+hideTestComponents :: LocalBuildInfo -> LocalBuildInfo
 
 hideTestComponents lbi =
+#if defined(OLD_LBI_COMPONENTS)
   lbi {compBuildOrder = filter (not . isTestComponent) $ compBuildOrder lbi
       , testSuiteConfigs = []}
-
-#elif defined(CABAL_1_16)
-
-hideTestComponents lbi =
+#elif defined(NEW_LBI_COMPONENTS)
   lbi {componentsConfigs = mapMaybe removeTests $ componentsConfigs lbi}
   where
     removeTests (cname, clbi, deps)
       | isTestComponent cname = Nothing
       | otherwise = Just (cname, clbi, filter (not . isTestComponent) deps)
-
 #else
 #error
 #endif
@@ -243,9 +261,9 @@ isTestComponent (CTestName {}) = True
 isTestComponent _              = False
 
 genericGhcOptions verb lbi bi clbi build_path =
-#if defined(CABAL_1_14)
+#if defined(OLD_GHC_OPTIONS)
   ghcOptions lbi bi clbi cabalBuildPath
-#elif defined(CABAL_1_16)
+#elif defined(NEW_GHC_OPTIONS)
   componentGhcOptions verb lbi bi clbi cabalBuildPath
 #else
 #error
