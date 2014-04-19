@@ -61,12 +61,12 @@ configFiles = ["configure", "config.log", "config.status", "Makefile",
 -- Helpful IO procedures
 
 noGHCiLib =
-    die "Sorry, this package does not support GHCi.\n\
-        \Please configure with --disable-library-for-ghci to disable."
+    die $ "Sorry, this package does not support GHCi.\n" ++
+          "Please configure with --disable-library-for-ghci to disable."
 
 noSharedLib =
-    die "Sorry, this package does not support shared library output.\n\
-        \Please configure with --disable-shared to disable."
+    die $ "Sorry, this package does not support shared library output.\n" ++
+          "Please configure with --disable-shared to disable."
 
 writeUseInstalledOmegaFlag :: Bool -> IO ()
 writeUseInstalledOmegaFlag b = do
@@ -97,13 +97,13 @@ lenientRemoveDirectory f = do
 configureOmega pkgDesc originalFlags = do
   -- Disable unsupported configuratoins
   when (flagToMaybe (configGHCiLib originalFlags) == Just True) $
-       notice verbosity "** Sorry, this package does not support GHCi.\n\
-                        \** Disabling GHCi library output."
+       notice verbosity $ "** Sorry, this package does not support GHCi.\n" ++
+                          "** Disabling GHCi library output."
 
   when (flagToMaybe (configSharedLib originalFlags) == Just True) $
-       notice verbosity "** Sorry, this package does not support \
-                        \shared library output.\n\
-                        \** Disabling shared library output."
+       notice verbosity $ "** Sorry, this package does not support " ++
+                             "shared library output.\n" ++
+                          "** Disabling shared library output."
 
   -- Run Cabal configuration
   lbi <- confHook simpleUserHooks pkgDesc flags
@@ -219,31 +219,43 @@ buildOmega pkgDesc lbi userhooks flags = do
 
   return ()
 
+#if defined(CABAL_1_14)
+
 hideTestComponents lbi =
   lbi {compBuildOrder = filter (not . isTestComponent) $ compBuildOrder lbi
       , testSuiteConfigs = []}
 
-{- For Cabal 1.16
+#elif defined(CABAL_1_16)
+
 hideTestComponents lbi =
   lbi {componentsConfigs = mapMaybe removeTests $ componentsConfigs lbi}
   where
     removeTests (cname, clbi, deps)
       | isTestComponent cname = Nothing
       | otherwise = Just (cname, clbi, filter (not . isTestComponent) deps)
--}
+
+#else
+#error
+#endif
 
 isTestComponent :: ComponentName -> Bool
 isTestComponent (CTestName {}) = True
 isTestComponent _              = False
 
+genericGhcOptions verb lbi bi clbi build_path =
+#if defined(CABAL_1_14)
+  ghcOptions lbi bi clbi cabalBuildPath
+#elif defined(CABAL_1_16)
+  componentGhcOptions verb lbi bi clbi cabalBuildPath
+#else
+#error
+#endif
+
 buildTestSuites useInstalledOmega pkgDesc lbi flags =
   withTestLBI pkgDesc lbi $ \test clbi -> do
     let verb = fromFlagOrDefault Verbosity.normal $ buildVerbosity flags
         bi = testBuildInfo test
-
-        -- For Cabal 1.16
-        --opts = componentGhcOptions verb lbi bi clbi odir
-        opts = ghcOptions lbi bi clbi cabalBuildPath
+        opts = genericGhcOptions verb lbi bi clbi cabalBuildPath
 
         build_opts = ["--make", "-o",
                       cabalBuildPath </> testName test </> testName test]
@@ -260,6 +272,7 @@ buildTestSuites useInstalledOmega pkgDesc lbi flags =
                      ]
         all_opts = build_opts ++ opts ++ local_link_opt ++ input_opts
 
+    createDirectoryIfMissing True (cabalBuildPath </> testName test)
     (ghcProg, _) <- requireProgram verb ghcProgram (withPrograms lbi)
     runProgram verb ghcProg all_opts
 
