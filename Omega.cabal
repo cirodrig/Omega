@@ -40,6 +40,8 @@ Library
         Data.Presburger.Omega.Set
         Data.Presburger.Omega.Rel
   Other-Modules:
+        Data.Presburger.Omega.Internal.Expr
+        Data.Presburger.Omega.Internal.ShowExpr
         Data.Presburger.Omega.SetRel
   Extensions:		GADTs ScopedTypeVariables
   Build-Tools:		hsc2hs
@@ -61,6 +63,7 @@ Test-Suite test-Omega
         Data.Presburger.Omega.Rel
         Data.Presburger.Omega.SetRel
         TestExpr
+        TestSet
   Extensions:		GADTs ScopedTypeVariables
   Build-Tools:		hsc2hs
   Hs-Source-Dirs:       . test

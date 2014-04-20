@@ -4,7 +4,6 @@ module TestExpr(exprTests) where
 import Test.HUnit
 
 import Data.Presburger.Omega.Expr
-import Debug.Trace
 
 -- | Test whether two expressions are equal by subtracting them.
 --   Equal expressions simplify to 0.

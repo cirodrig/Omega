@@ -61,7 +61,7 @@ instance Show Set where
                     showString "set " .
                     shows (setDim s) .
                     showChar ' ' .
-                    showsPrec 10 (setExp s)
+                    showLambdaList (setDim s) (\e p -> showsBoolExprPrec e p (getSimplifiedExpr $ setExp s)) emptyShowsEnv 10
 
 -- | Create a set whose members are defined by a predicate.
 --
@@ -69,16 +69,16 @@ instance Show Set where
 --
 -- For example, the set of all points on the plane is
 -- 
--- >  set 2 trueE
+-- >  set 2 (\[_, _] -> trueE)
 -- 
 -- The set of all points (x, y, z) where x > y + z is
 -- 
--- >  set 3 (case takeFreeVariables' 3 of [x,y,z] -> x |>| y |+| z)
+-- >  set 3 (\[x,y,z] -> x |>| y |+| z)
 --
 set :: Int                      -- ^ Number of dimensions
-    -> BoolExp                  -- ^ Predicate defining the set
+    -> ([Var] -> BoolExp)       -- ^ Predicate defining the set
     -> Set
-set dim expr
+set dim mk_expr
     | variablesWithinRange dim expr =
         Set
         { setDim      = dim
@@ -86,6 +86,8 @@ set dim expr
         , setOmegaSet = unsafePerformIO $ mkOmegaSet dim expr
         }
     | otherwise = error "set: Variables out of range"
+  where
+    expr = mk_expr (takeFreeVariables dim)
 
 mkOmegaSet :: Int -> BoolExp -> IO OmegaSet
 mkOmegaSet dim expr = L.newOmegaSet dim (\vars -> expToFormula vars expr)

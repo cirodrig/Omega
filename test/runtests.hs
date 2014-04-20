@@ -3,8 +3,9 @@ import Test.HUnit
 import System.Exit
 
 import TestExpr
+import TestSet
 
-allTests = TestList [exprTests]
+allTests = TestList [exprTests, setTests]
 
 main = do
   counts <- runTestTT allTests
