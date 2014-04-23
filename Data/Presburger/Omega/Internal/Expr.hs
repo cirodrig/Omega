@@ -1,5 +1,7 @@
 
-{-# OPTIONS_GHC -XBangPatterns
+{-# OPTIONS_GHC -XScopedTypeVariables 
+                -XGADTs
+                -XBangPatterns
                 -XTypeFamilies
                 -XEmptyDataDecls
                 -XFlexibleInstances

@@ -55,6 +55,9 @@ import Data.Presburger.Omega.LowLevel(OmegaRel, Effort(..))
 import Data.Presburger.Omega.SetRel
 import qualified Data.Presburger.Omega.Set as Set
 import Data.Presburger.Omega.Set(Set)
+import Data.Presburger.Omega.Internal.ShowExpr
+import Data.Presburger.Omega.Internal.ShowUtil
+import Data.Presburger.Omega.Internal.Expr
 
 -- | A relation from points in a /domain/ Z^m to points in a /range/ Z^n.
 --
@@ -74,15 +77,14 @@ data Rel = Rel
 
 instance Show Rel where
     -- Generate a call to 'rel'
-    showsPrec n r = showParen (n >= 10) $
-                    showString "rel " .
-                    shows (relInpDim r) .
-                    showChar ' ' .
-                    shows (relOutDim r) .
-                    showChar ' ' .
-                    showsPrec 10 (relFun r)
-        where
-          showChar c = (c:)
+    showsPrec n r = showsPrecExpr (showRel r) n
+
+showRel r = showTerminal "rel" `showApp`
+            showInt (relInpDim r) `showApp`
+            showInt (relOutDim r) `showApp`
+            (showLambdaBound (relInpDim r) $
+             showLambdaBound (relOutDim r) $
+             showBoolExpr (getSimplifiedExpr $ relFun r))
 
 -- | Create a relation whose members are defined by a predicate.
 --
@@ -91,11 +93,12 @@ instance Show Rel where
 -- variables refer to the domain, and the remaining variables refer to
 -- the range.
 
-rel :: Int                      -- ^ Dimensionality of the domain
-    -> Int                      -- ^ Dimensionality of the range
-    -> BoolExp                  -- ^ Predicate defining the relation
+rel :: Int                         -- ^ Dimensionality of the domain
+    -> Int                         -- ^ Dimensionality of the range
+    -> ([Var] -> [Var] -> BoolExp) -- ^ Predicate on the domain and range
+                                   --   defining the relation
     -> Rel
-rel inDim outDim expr
+rel inDim outDim mk_expr
     | variablesWithinRange (inDim + outDim) expr =
         Rel
         { relInpDim   = inDim
@@ -104,6 +107,11 @@ rel inDim outDim expr
         , relOmegaRel = unsafePerformIO $ mkOmegaRel inDim outDim expr
         }
     | otherwise = error "rel: Variables out of range"
+  where
+    expr = case splitAt inDim freeVariables
+           of (in_v, fv') ->
+                let out_v = take outDim fv'
+                in mk_expr in_v out_v
 
 mkOmegaRel inDim outDim expr =
     L.newOmegaRel inDim outDim $ \dom rng -> expToFormula (dom ++ rng) expr
@@ -119,27 +127,34 @@ mkOmegaRel inDim outDim expr =
 -- > in functionalRel 2 [y, x] (conjE [y |>| intE 0, x |>| intE 0])
 
 functionalRel :: Int            -- ^ Dimensionality of the domain
-              -> [IntExp]       -- ^ Function relating domain to range
-              -> BoolExp        -- ^ Predicate restricting the domain
+              -> ([Var] -> (BoolExp, [IntExp]))
+                 -- ^ A predicate restricting the domain, and
+                 --   the functional mapping from domain to range
               -> Rel
-functionalRel dim range domain
-    | all (variablesWithinRange dim) range &&
-      variablesWithinRange dim domain =
+functionalRel dim define_relation
+    | all (variablesWithinRange dim) mapping &&
+      variablesWithinRange dim domain_predicate =
         Rel
         { relInpDim   = dim
-        , relOutDim   = length range
+        , relOutDim   = out_dim
         , relFun      = relationPredicate
         , relOmegaRel = unsafePerformIO $
-                        mkFunctionalOmegaRel dim range domain
+                        mkFunctionalOmegaRel dim mapping domain_predicate
         }
     | otherwise = error "functionalRel: Variables out of range"
     where
+      -- Get the defining expressions
+      in_v = take dim freeVariables
+      (domain_predicate, mapping) = define_relation in_v
+
+      -- Build the predicate for this relation
+      out_dim = length mapping
+      out_v = take out_dim $ drop dim freeVariables
+
       -- construct the expression domain && rangeVar1 == rangeExp1 && ...
       relationPredicate =
-          conjE (domain : zipWith outputPredicate [dim..] range)
-
-      outputPredicate index expr =
-          varE (nthVariable index) |==| expr
+        let mapping_predicates = [varE v |==| e | (v, e) <- zip out_v mapping]
+        in conjE (domain_predicate : mapping_predicates)
 
 -- To make an omega relation, we combine the range variables and the domain
 -- into one big happy formula, with the conjunction

@@ -58,15 +58,7 @@ module Data.Presburger.Omega.Expr
      -- ** Manipulating variables
      rename,
      adjustBindings,
-     variablesWithinRange,
-
-     -- ** TEMPORARY: Showing
-     showLambdaList,
-     emptyShowsEnv,
-     showsIntExprPrec,
-     showsBoolExprPrec,
-     showShowsEnv,
-     getSimplifiedExpr
+     variablesWithinRange
     )
 where
 

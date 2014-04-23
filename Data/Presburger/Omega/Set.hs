@@ -47,6 +47,9 @@ import Data.Presburger.Omega.Expr
 import qualified Data.Presburger.Omega.LowLevel as L
 import Data.Presburger.Omega.LowLevel(OmegaSet, Effort(..))
 import Data.Presburger.Omega.SetRel
+import Data.Presburger.Omega.Internal.Expr
+import Data.Presburger.Omega.Internal.ShowExpr
+import Data.Presburger.Omega.Internal.ShowUtil
 
 -- | Sets of points in Z^n defined by a formula.
 data Set = Set
@@ -57,11 +60,12 @@ data Set = Set
 
 instance Show Set where
     -- Generate a call to 'set'
-    showsPrec n s = showParen (n >= 10) $
-                    showString "set " .
-                    shows (setDim s) .
-                    showChar ' ' .
-                    showLambdaList (setDim s) (\e p -> showsBoolExprPrec e p (getSimplifiedExpr $ setExp s)) emptyShowsEnv 10
+    showsPrec n s = showsPrecExpr (showSet s) n
+
+showSet s = showTerminal "set" `showApp`
+            showInt (setDim s) `showApp`
+            (showLambdaBound (setDim s) $
+             showBoolExpr (getSimplifiedExpr $ setExp s))
 
 -- | Create a set whose members are defined by a predicate.
 --
