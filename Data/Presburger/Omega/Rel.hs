@@ -10,7 +10,7 @@
 module Data.Presburger.Omega.Rel
     (Rel,
      -- * Building relations
-     rel, functionalRel, fromOmegaRel,
+     rel, functionalRel, relFromExp, fromOmegaRel,
 
      -- * Operations on relations
      toOmegaRel,
@@ -47,6 +47,7 @@ module Data.Presburger.Omega.Rel
     )
 where
 
+import Test.QuickCheck.Arbitrary
 import System.IO.Unsafe
 
 import Data.Presburger.Omega.Expr
@@ -55,6 +56,7 @@ import Data.Presburger.Omega.LowLevel(OmegaRel, Effort(..))
 import Data.Presburger.Omega.SetRel
 import qualified Data.Presburger.Omega.Set as Set
 import Data.Presburger.Omega.Set(Set)
+import Data.Presburger.Omega.Internal.Arbitrary
 import Data.Presburger.Omega.Internal.ShowExpr
 import Data.Presburger.Omega.Internal.ShowUtil
 import Data.Presburger.Omega.Internal.Expr
@@ -98,7 +100,12 @@ rel :: Int                         -- ^ Dimensionality of the domain
     -> ([Var] -> [Var] -> BoolExp) -- ^ Predicate on the domain and range
                                    --   defining the relation
     -> Rel
-rel inDim outDim mk_expr
+rel inDim outDim mk_expr = 
+  let (in_v, fv') = splitAt inDim freeVariables
+      out_v       = take outDim fv'
+  in relFromExp inDim outDim $ mk_expr in_v out_v
+
+relFromExp inDim outDim expr
     | variablesWithinRange (inDim + outDim) expr =
         Rel
         { relInpDim   = inDim
@@ -106,12 +113,7 @@ rel inDim outDim mk_expr
         , relFun      = expr
         , relOmegaRel = unsafePerformIO $ mkOmegaRel inDim outDim expr
         }
-    | otherwise = error "rel: Variables out of range"
-  where
-    expr = case splitAt inDim freeVariables
-           of (in_v, fv') ->
-                let out_v = take outDim fv'
-                in mk_expr in_v out_v
+    | otherwise = error "relFromExp: Variables out of range"
 
 mkOmegaRel inDim outDim expr =
     L.newOmegaRel inDim outDim $ \dom rng -> expToFormula (dom ++ rng) expr
@@ -131,17 +133,8 @@ functionalRel :: Int            -- ^ Dimensionality of the domain
                  -- ^ The output coordinate as a function of the input
                  --   coordinate, and a restriction on the domain
               -> Rel
-functionalRel dim define_relation
-    | all (variablesWithinRange dim) mapping &&
-      variablesWithinRange dim domain_predicate =
-        Rel
-        { relInpDim   = dim
-        , relOutDim   = out_dim
-        , relFun      = relationPredicate
-        , relOmegaRel = unsafePerformIO $
-                        mkFunctionalOmegaRel dim mapping domain_predicate
-        }
-    | otherwise = error "functionalRel: Variables out of range"
+functionalRel dim define_relation =
+  relFromExp dim out_dim relationPredicate
     where
       -- Get the defining expressions
       in_v = take dim freeVariables
@@ -181,6 +174,13 @@ mkFunctionalOmegaRel dim range domain =
               expr' = expr |==| varE (nthVariable dim)
 
           in expToFormula vars expr'
+
+instance Arbitrary Rel where
+  arbitrary = do
+    dom_size <- arbitrarySizedBoundedIntegral
+    rng_size <- arbitrarySizedBoundedIntegral
+    expr     <- arbitraryLinearBoolExpr (dom_size + rng_size)
+    return $ relFromExp dom_size rng_size (wrapExpr expr)
 
 -- | Convert an 'OmegaRel' to a 'Rel'.
 fromOmegaRel :: OmegaRel -> IO Rel

@@ -11,7 +11,7 @@ module Data.Presburger.Omega.Set
     (Set,
 
      -- * Building sets
-     set, fromOmegaSet,
+     set, setFromExp, fromOmegaSet,
 
      -- * Operations on sets
      toOmegaSet,
@@ -41,12 +41,14 @@ module Data.Presburger.Omega.Set
     )
 where
 
+import Test.QuickCheck.Arbitrary
 import System.IO.Unsafe
 
 import Data.Presburger.Omega.Expr
 import qualified Data.Presburger.Omega.LowLevel as L
 import Data.Presburger.Omega.LowLevel(OmegaSet, Effort(..))
 import Data.Presburger.Omega.SetRel
+import Data.Presburger.Omega.Internal.Arbitrary
 import Data.Presburger.Omega.Internal.Expr
 import Data.Presburger.Omega.Internal.ShowExpr
 import Data.Presburger.Omega.Internal.ShowUtil
@@ -80,19 +82,25 @@ showSet s = showTerminal "set" `showApp`
 set :: Int                      -- ^ Number of dimensions
     -> ([Var] -> BoolExp)       -- ^ Predicate defining the set
     -> Set
-set dim mk_expr
+set dim mk_expr = setFromExp dim (mk_expr $ takeFreeVariables dim)
+
+setFromExp dim expr
     | variablesWithinRange dim expr =
         Set
         { setDim      = dim
         , setExp      = expr
         , setOmegaSet = unsafePerformIO $ mkOmegaSet dim expr
         }
-    | otherwise = error "set: Variables out of range"
-  where
-    expr = mk_expr (takeFreeVariables dim)
+    | otherwise = error "setFromExp: Variables out of range"
 
 mkOmegaSet :: Int -> BoolExp -> IO OmegaSet
 mkOmegaSet dim expr = L.newOmegaSet dim (\vars -> expToFormula vars expr)
+
+instance Arbitrary Set where
+  arbitrary = do
+    dom_size <- arbitrarySizedBoundedIntegral
+    expr     <- arbitraryLinearBoolExpr dom_size
+    return $ setFromExp dom_size (wrapExpr expr)
 
 -------------------------------------------------------------------------------
 -- Creating sets from Omega sets
