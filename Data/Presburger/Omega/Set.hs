@@ -69,15 +69,13 @@ showSet s = showTerminal "set" `showApp`
 
 -- | Create a set whose members are defined by a predicate.
 --
--- The expression should have one free variable for each dimension.
---
 -- For example, the set of all points on the plane is
 -- 
--- >  set 2 (\[_, _] -> trueE)
+-- >  set 2 (\[_,_] -> trueE)
 -- 
--- The set of all points (x, y, z) where x > y + z is
+-- The set of all points @(x, y, z)@ where @x > y + z@ is
 -- 
--- >  set 3 (\[x,y,z] -> x |>| y |+| z)
+-- >  set 3 (\[x,y,z] -> varE x |>| varE y |+| varE z)
 --
 set :: Int                      -- ^ Number of dimensions
     -> ([Var] -> BoolExp)       -- ^ Predicate defining the set

@@ -88,10 +88,10 @@ showRel r = showTerminal "rel" `showApp`
 
 -- | Create a relation whose members are defined by a predicate.
 --
--- The expression should have @m+n@ free variables, where @m@ and @n@ are
--- the first two parameters.  The first @m@
--- variables refer to the domain, and the remaining variables refer to
--- the range.
+-- For example, a relation that associates a coordinate z with
+-- the diagonal @(z + y, y)@ is
+--
+-- > rel 1 2 (\[z] [x, y] -> varE z |+| varE y |==| varE x)
 
 rel :: Int                         -- ^ Dimensionality of the domain
     -> Int                         -- ^ Dimensionality of the range
@@ -118,18 +118,18 @@ mkOmegaRel inDim outDim expr =
 
 -- | Create a relation where each output is a function of the inputs.
 --
--- Each expression should have @m@ free variables, where @m@
--- is the first parameter.
+-- The defining function consists of a predicate specifying where the domain
+-- is valid, and the output coordinates as a function of the input coordinates.
 --
 -- For example, the relation @{(x, y) -> (y, x) | x > 0 && y > 0}@ is
 --
--- > let [x, y] = takeFreeVariables' 2
--- > in functionalRel 2 [y, x] (conjE [y |>| intE 0, x |>| intE 0])
+-- > functionalRel 2 (\[x, y] -> ([varE y, varE x],
+-- >                              varE x |>| intE 0 |&&| varE y |>| intE 0))
 
 functionalRel :: Int            -- ^ Dimensionality of the domain
-              -> ([Var] -> (BoolExp, [IntExp]))
-                 -- ^ A predicate restricting the domain, and
-                 --   the functional mapping from domain to range
+              -> ([Var] -> ([IntExp], BoolExp))
+                 -- ^ The output coordinate as a function of the input
+                 --   coordinate, and a restriction on the domain
               -> Rel
 functionalRel dim define_relation
     | all (variablesWithinRange dim) mapping &&
@@ -145,7 +145,7 @@ functionalRel dim define_relation
     where
       -- Get the defining expressions
       in_v = take dim freeVariables
-      (domain_predicate, mapping) = define_relation in_v
+      (mapping, domain_predicate) = define_relation in_v
 
       -- Build the predicate for this relation
       out_dim = length mapping
