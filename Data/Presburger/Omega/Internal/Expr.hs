@@ -145,15 +145,15 @@ notE e = wrapExpr $ NotE $ getExpr e
 
 -- | Conjunction
 conjE :: [BoolExp] -> BoolExp
-conjE es = wrapExpr $ CAUE Conj True $ map getExpr es
+conjE es = wrapExpr $ conjExpr $ map getExpr es
 
 -- | Disjunction
 disjE :: [BoolExp] -> BoolExp
-disjE es = wrapExpr $ CAUE Disj False $ map getExpr es
+disjE es = wrapExpr $ disjExpr $ map getExpr es
 
 -- | Conjunction
 (|&&|) :: BoolExp -> BoolExp -> BoolExp
-e |&&| f = wrapExpr $ CAUE Conj True [getExpr e, getExpr f]
+e |&&| f = wrapExpr $ conjExpr [getExpr e, getExpr f]
 
 -- | Add
 (|+|) :: IntExp -> IntExp -> IntExp
@@ -445,6 +445,9 @@ sumOfProductsExpr n prods = CAUE Sum n $ map prod prods
 
 testExpr :: PredOp -> IntExpr -> BoolExpr
 testExpr p e = PredE p e
+
+prodExpr :: [IntExpr] -> IntExpr
+prodExpr = CAUE Prod 1
 
 conjExpr :: [BoolExpr] -> BoolExpr
 conjExpr = CAUE Conj True
