@@ -70,6 +70,7 @@ Test-Suite test-Omega
         Data.Presburger.Omega.Internal.ShowUtil
         TestExpr
         TestSet
+        TestRel
   Extensions:		GADTs ScopedTypeVariables
   Build-Tools:		hsc2hs
   Hs-Source-Dirs:       . test

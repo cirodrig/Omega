@@ -4,8 +4,9 @@ import System.Exit
 
 import TestExpr
 import TestSet
+import TestRel
 
-allTests = TestList [exprTests, setTests]
+allTests = TestList [exprTests, setTests, relTests]
 
 main = do
   counts <- runTestTT allTests
