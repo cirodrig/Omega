@@ -33,12 +33,15 @@ Flag UseInstalledOmega
   Default:		False
 
 Library
-  Build-Depends:	base >= 4 && < 5, containers, QuickCheck >= 2.4.1
+  Build-Depends:	base >= 4 && < 5, array, containers, QuickCheck >= 2.4.1
+  Build-Tools:          alex, happy
   Exposed-Modules:
         Data.Presburger.Omega.Expr
         Data.Presburger.Omega.LowLevel
         Data.Presburger.Omega.Set
         Data.Presburger.Omega.Rel
+        Data.Presburger.Omega.Internal.Parser
+        Data.Presburger.Omega.Internal.Lexer
   Other-Modules:
         Data.Presburger.Omega.SetRel
         Data.Presburger.Omega.Internal.Arbitrary
@@ -57,13 +60,16 @@ Library
 Test-Suite test-Omega
   Type:                 exitcode-stdio-1.0
   main-is:              runtests.hs
-  Build-Depends:	base >= 4 && < 5, containers, QuickCheck >= 2.4.1, HUnit
+  Build-Depends:	base >= 4 && < 5, array, containers, QuickCheck >= 2.4.1, HUnit
+  Build-Tools:          alex, happy
   Other-Modules:
         Data.Presburger.Omega.Expr
         Data.Presburger.Omega.LowLevel
         Data.Presburger.Omega.Set
         Data.Presburger.Omega.Rel
         Data.Presburger.Omega.SetRel
+        Data.Presburger.Omega.Internal.Parser
+        Data.Presburger.Omega.Internal.Lexer
         Data.Presburger.Omega.Internal.Arbitrary
         Data.Presburger.Omega.Internal.Expr
         Data.Presburger.Omega.Internal.ShowExpr

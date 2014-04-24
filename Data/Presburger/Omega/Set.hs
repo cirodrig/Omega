@@ -64,7 +64,7 @@ instance Show Set where
     -- Generate a call to 'set'
     showsPrec n s = showsPrecExpr (showSet s) n
 
-showSet s = showTerminal "set" `showApp`
+showSet s = showTerminal "setFromExp" `showApp`
             showInt (setDim s) `showApp`
             (showLambdaBound (setDim s) $
              showBoolExpr (getSimplifiedExpr $ setExp s))

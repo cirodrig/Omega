@@ -87,7 +87,7 @@ showVarPrec env (Bound i) =
       -- We have to subtract an offset to account for the local variable
       -- bindings, basically undoing the shift that 'withFreshVariable'
       -- applies.
-      shift n = withPrec appPrec $ showString "nthVar " . shows (i-n)
+      shift n = withPrec appPrec $ showString "nthVariable " . shows (i-n)
 
 -- Unique is not showable, but users shouldn't see quantified variables anyway
 showVarPrec _ (Quantified u) = withPrec appPrec $ showString "Quantified _"
