@@ -38,8 +38,8 @@ $white+                         ;
 "trueE" / $ntrail               { const Tok_trueE }
 "falseE" / $ntrail              { const Tok_falseE }
 "isZeroE" / $ntrail             { const Tok_isZeroE }
-"setFromExp" / $ntrail          { const Tok_setFromExp }
-"relFromExp" / $ntrail          { const Tok_relFromExp }
+"set" / $ntrail                 { const Tok_set }
+"rel" / $ntrail                 { const Tok_rel }
 "*|"                            { const IntTimesTok }
 "|*|"                           { const TimesTok }
 "|+|"                           { const PlusTok }
@@ -66,7 +66,7 @@ data Token =
   | ToTok
   | Tok_nthVariable | Tok_intE | Tok_varE | Tok_notE | Tok_disjE
   | Tok_forallE | Tok_existsE | Tok_trueE | Tok_falseE | Tok_isZeroE
-  | Tok_setFromExp | Tok_relFromExp
+  | Tok_set | Tok_rel
   | IntTimesTok | TimesTok | PlusTok | MinusTok | AndTok
   | LETok | LTTok | GETok | GTTok | EQTok
   deriving(Show)

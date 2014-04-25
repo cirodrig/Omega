@@ -38,8 +38,8 @@ import Data.Presburger.Omega.Internal.Lexer
         trueE                   { Tok_trueE }
         falseE                  { Tok_falseE }
         isZeroE                 { Tok_isZeroE }
-        setFromExp              { Tok_setFromExp }
-        relFromExp              { Tok_relFromExp }
+        set                     { Tok_set }
+        rel                     { Tok_rel }
         '*|'                    { IntTimesTok }
         '|*|'                   { TimesTok }
         '|+|'                   { PlusTok }
@@ -146,7 +146,7 @@ ListQuant(p)
 
 -- The set dimension is nonnegative, so it will never be in parentheses
 SetBody :: { P Set }
-        : setFromExp int ListQuant(Logic) { liftA (setFromExp $2) $3 }
+        : set int ListQuant(Logic)      { liftA (setFromExp $2) $3 }
 
 Set     : SetBody                       { $1 }
         | Paren(SetBody)                { $1 }
@@ -154,7 +154,7 @@ Set     : SetBody                       { $1 }
 -- The input and ouput dimensions are nonnegative,
 -- so they will never be in parentheses
 RelBody :: { P Rel }
-        : relFromExp int int ListQuant(ListQuant(Logic)) { liftA (relFromExp $2 $3) $4 }
+        : rel int int ListQuant(ListQuant(Logic)) { liftA (relFromExp $2 $3) $4 }
 
 Rel     : RelBody                       { $1 }
         | Paren(RelBody)                { $1 }

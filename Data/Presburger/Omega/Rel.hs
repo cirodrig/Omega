@@ -81,7 +81,7 @@ instance Show Rel where
     -- Generate a call to 'rel'
     showsPrec n r = showsPrecExpr (showRel r) n
 
-showRel r = showTerminal "relFromExp" `showApp`
+showRel r = showTerminal "rel" `showApp`
             showInt (relInpDim r) `showApp`
             showInt (relOutDim r) `showApp`
             (showLambdaBound (relInpDim r) $

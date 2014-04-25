@@ -67,7 +67,6 @@ showProd n (e:es) =
 -- Boolean expressions
 
 showBoolExpr :: BoolExpr -> ShowExpr
-showBoolExpr (CAUE Conj lit []) = showBoolLit lit
 showBoolExpr (CAUE Conj lit es) =
   let b = if lit then Nothing else Just $ showBoolLit lit
   in showLeftfixCAOp andPrec "|&&|" b $ map showBoolExpr es

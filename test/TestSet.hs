@@ -29,10 +29,10 @@ readTest = TestLabel "Parsing sets" $
                     , read_test s2 s2_s]
   where
     read_test x string = test $ x `WSet.equal` (read string) @? "Not equal"
-    s_s = "setFromExp 1 (\\[x] -> trueE)"
+    s_s = "set 1 (\\[x] -> trueE)"
     s = WSet.set 1 (\[x] -> trueE)
     
-    s2_s = "setFromExp 2 (\\[x,y] -> varE x |>| varE y)"
+    s2_s = "set 2 (\\[x,y] -> varE x |>| varE y)"
     s2 = WSet.set 2 (\[x, y] -> varE x |>| varE y)
 
                             
