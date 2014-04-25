@@ -132,12 +132,37 @@ showGEZ' lit es =
              (showIntExpr neg')
 
 -- Show a comparison-to-zero prettily.
--- If it is a summation with only one term, then we show it as
+
+-- If it is a summation with only one term, show it as
 --   "term |==| literal"
--- Otherwise we show it as an application of "isZeroE".
 showEQZ (CAUE Sum lit [e]) =
   showLeftfixOp cmpPrec "|==|" (showIntExpr e) (showIntLit lit)
 
+-- If it is a summation with two terms and no literal, 
+-- and one term is a variable with a coefficient of +-1,
+-- "var |==| term"
+showEQZ e@(CAUE Sum 0 [e1, e2]) =
+  let Term n1 e1' = deconstructProduct e1
+      Term n2 e2' = deconstructProduct e2
+  in case () 
+     of _ | n1 == 1 && is_var e1' -> equals e1' (negate_exp e2)
+          | n2 == 1 && is_var e2' -> equals e2' (negate_exp e1)
+          | n1 == -1 && is_var e1' -> equals e1' e2
+          | n2 == -1 && is_var e2' -> equals e2' e1
+          | otherwise -> showTerminal "isZeroE" `showApp` showIntExpr e
+  where
+    equals [e] f = showLeftfixOp cmpPrec "|==|" (showIntExpr e) (showIntExpr f)
+
+    -- May need to negate a term
+    negate_exp (CAUE Sum lit xs)  = CAUE Sum (negate lit) (map negate_exp xs)
+    negate_exp (LitE l)           = LitE (negate l)
+    negate_exp (CAUE Prod lit xs) = CAUE Prod (negate lit) xs
+    negate_exp e                  = CAUE Prod (-1) [e]
+
+    is_var [VarE _] = True
+    is_var _        = False
+
+-- Otherwise we show it as an application of "isZeroE".
 showEQZ e =
   showTerminal "isZeroE" `showApp` showIntExpr e
 
