@@ -1,19 +1,32 @@
 
--- Choose feature sets based on Cabal version
+{- Choose feature sets based on Cabal version.  Some parts of the API changed
+   across versions.
+
+OLD_GHC_OPTIONS: Old way of building GHC command lines
+NEW_GHC_OPTIONS: New way of building GHC command lines
+
+OLD_LBI_COMPONENTS: Old way of listing components in LocalBuildInfo
+NEW_LBI_COMPONENTS: New way of listing components in LocalBuildInfo
+
+LIBRARY_NAME_IS_PACKAGE_ID: Use a PackageIdentifier as a library's name
+LIBRARY_NAME_IS_LIBRARY_NAME: Use a LibraryName as a library's name
+-}
 #if CABAL_MAJOR == 1
 # if CABAL_MINOR <= 14
 #  define OLD_GHC_OPTIONS
 #  define OLD_LBI_COMPONENTS
+#  define LIBRARY_NAME_IS_PACKAGE_ID
 # elif CABAL_MINOR <= 16
 #  define NEW_GHC_OPTIONS
 #  define OLD_LBI_COMPONENTS
+#  define LIBRARY_NAME_IS_PACKAGE_ID
 # else
 #  if CABAL_MINOR > 18
 #   warning "Building with an unrecognized version of Cabal"
 #  endif
 #  define NEW_GHC_OPTIONS
 #  define NEW_LBI_COMPONENTS
-#  error "Unsupported Cabal version"
+#  define LIBRARY_NAME_IS_LIBRARY_NAME
 # endif
 #else
 # error "Unsupported Cabal version"
@@ -24,6 +37,7 @@ import Control.Applicative
 import Control.Exception(IOException, catch, bracket)
 import Control.Monad
 import Data.Char
+import Data.List hiding(intercalate)
 import Data.Maybe
 import Distribution.PackageDescription
 import Distribution.Simple
@@ -104,6 +118,19 @@ readUseInstalledOmegaFlag = do
   text <- readFile useInstalledOmegaFlagPath `recover`
           die "Configuration file missing; try reconfiguring"
   return $! read text
+
+-- Run a command if f1 is newer than f2, or if f2 does not exist
+ifNewer :: FilePath -> FilePath -> IO () -> IO ()
+ifNewer src tgt m = do
+  tgt_exists <- doesFileExist tgt
+  if not tgt_exists
+    then m                      -- Run because target doesn't exist 
+    else do
+      src_time <- getModificationTime src
+      tgt_time <- getModificationTime tgt
+      if src_time > tgt_time
+        then m                  -- Run because source is newer 
+        else return ()
 
 -- Attempt to remove a file, ignoring errors
 lenientRemoveFile f = removeFile f `recover` return ()
@@ -216,9 +243,6 @@ buildOmega pkgDesc lbi userhooks flags = do
   -- Get 'ar' and 'ld' programs
   let runAr = runDbProgram verb arProgram (withPrograms lbi)
 
-  -- Add other object files to libraries
-  let pkgId   = package $ localPkgDescr lbi
-
   let -- Add extra files into an archive file
       addStaticObjectFiles libName = do
           -- Add the C++ interface file
@@ -232,18 +256,39 @@ buildOmega pkgDesc lbi userhooks flags = do
             addStaticObjectFile objName libName =
                 runAr ["r", libName, objName]
 
+  -- Add other object files to libraries
+  libName <- getLibraryName pkgDesc lbi
+  
   when (withVanillaLib lbi) $
-       let libName = buildDir lbi </> mkLibName pkgId
-       in addStaticObjectFiles libName
+       let libPath = buildDir lbi </> mkLibName libName
+       in addStaticObjectFiles libPath
 
   when (withProfLib lbi) $
-       let libName = buildDir lbi </> mkProfLibName pkgId
-       in addStaticObjectFiles libName
+       let libPath = buildDir lbi </> mkProfLibName libName
+       in addStaticObjectFiles libPath
 
   when (withGHCiLib lbi) noGHCiLib
   when (withSharedLib lbi) noSharedLib
 
   return ()
+
+-- | Get the library name from processing the package description file
+#if defined(LIBRARY_NAME_IS_PACKAGE_ID)
+getLibraryName :: PackageDescription -> LocalBuildInfo -> IO PackageIdentifier
+getLibraryName pkgDesc lbi = return $ package $ localPkgDescr lbi
+
+#elif defined(LIBRARY_NAME_IS_LIBRARY_NAME)
+getLibraryName :: PackageDescription -> LocalBuildInfo -> IO LibraryName
+getLibraryName pkgDesc lbi =
+  case find (\(component_name, _, _) -> component_name == CLibName) $
+       componentsConfigs lbi
+  of Just (_, clbi, _) ->
+       case componentLibraries clbi
+       of [nm] -> return nm
+          _ -> die "Missing library name"
+#else
+#error
+#endif
 
 -- | Hide the test suite so Cabal doesn't try to use its default build 
 --   procedure with it.
