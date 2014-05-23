@@ -73,8 +73,7 @@ f `recover` h = f `Control.Exception.catch` handler
 -- Record whether we're building the Omega library here
 useInstalledOmegaFlagPath = "build" </> "UseInstalledOmega"
 
--- We will call 'autoconf' and 'make'
-autoconfProgram = simpleProgram "autoconf"
+-- We will call 'make'
 makeProgram = simpleProgram "make"
 
 -- Our single C++ source file and corresponding object file are here
@@ -145,6 +144,19 @@ lenientRemoveDirectory f = do
               removeDirectory f `recover` return ()
 
 -------------------------------------------------------------------------------
+-- Source distribution
+
+-- Configure programs
+runAutoconf verbosity = ifNewer "configure.ac" "configure" $ do
+  rawSystemExit verbosity "autoconf" []
+
+sDistOmega originalHook pkgDesc lbi hooks flags = do
+  runAutoconf verb              -- Ensure that 'configure' is created
+  originalHook pkgDesc lbi hooks flags
+  where
+    verb = fromFlagOrDefault Verbosity.normal $ sDistVerbosity flags
+
+-------------------------------------------------------------------------------
 -- Configuration
 
 configureOmega pkgDesc originalFlags = do
@@ -162,7 +174,7 @@ configureOmega pkgDesc originalFlags = do
   lbi <- confHook simpleUserHooks pkgDesc flags
 
   -- Run autoconf configuration
-  runAutoconf lbi
+  runAutoconf verbosity
   runConfigure lbi
 
   -- Save this flag for later use
@@ -179,10 +191,6 @@ configureOmega pkgDesc originalFlags = do
       useInstalledOmega = fromMaybe False $
                           lookup (FlagName "useinstalledomega") $
                           configConfigurationsFlags flags
-
-      -- Configure programs
-      runAutoconf lbi = do
-        runDbProgram verbosity autoconfProgram (withPrograms lbi) []
 
       -- Run 'configure' with the extra arguments that were passed to
       -- Setup.hs
@@ -420,10 +428,11 @@ cleanOmega pkgDesc mlbi userhooks flags = do
 
 hooks =
     simpleUserHooks
-    { hookedPrograms = [arProgram, autoconfProgram, makeProgram]
+    { hookedPrograms = [arProgram, makeProgram]
     , confHook = configureOmega
     , buildHook = buildOmega
     , cleanHook = cleanOmega
+    , sDistHook = sDistOmega (sDistHook simpleUserHooks)
     }
 
 main = defaultMainWithHooks hooks

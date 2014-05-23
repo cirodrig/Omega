@@ -20,6 +20,7 @@ Extra-Source-Files:
 	README
 	aclocal.m4
 	configure.ac
+        configure
 	Makefile.in
         DoSetup.hs
 	src/C_omega.cc
