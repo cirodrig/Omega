@@ -521,6 +521,9 @@ wrapOmegaSet ptr dom = do
 -- the set inhabits.  The second parameter builds a formula
 -- defining the set's members. The set's members are those points
 -- for which the formula evaluates to True.
+
+-- Variable handles are in de Bruijn index order.  The last variable in
+-- syntactic order is innermost, so it appears first in the list.
 newOmegaSet :: Int              -- ^ Dimensionality of the space that the set
                                 -- inhabits
             -> ([VarHandle] -> Formula) -- ^ Set members
@@ -631,6 +634,9 @@ wrapOmegaRel ptr dom rng = do
 -- of dimensions of the domain and range, respectively.  The third parameter
 -- builds a formula defining the relation.  Two points are related iff the
 -- formula evaluates to True on those points.
+
+-- Variable handles are in de Bruijn index order.  The last variable in
+-- syntactic order is innermost, so it appears first in the list.
 newOmegaRel :: Int              -- ^ Dimensionality of the domain
             -> Int              -- ^ Dimensionality of the range
             -> ([VarHandle] -> [VarHandle] -> Formula)

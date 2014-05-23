@@ -61,15 +61,23 @@ import Data.Presburger.Omega.Internal.ShowExpr
 import Data.Presburger.Omega.Internal.ShowUtil
 import Data.Presburger.Omega.Internal.Expr
 
+-- de Bruijn numbering of a relation's parameters
+--
+-- A relation from [dom_1 ... dom_n] to [rng_1 to rng_m]
+-- would be written by the user as
+--
+-- > rel n m \[dom1, ..., dom_n] [rng_1, ..., rng_m] -> ....
+--
+-- Following the convention that the innermost (rightmost) variable has
+-- the lowest index, the parameters are numbered in reverse order:
+-- [dom1 = m+n-1, dom2 = m+n-2, ..., dom_n = m,
+--  rng_1 = m-1, rng_2 = m-2, ..., rng_m = 0].
+
 -- | A relation from points in a /domain/ Z^m to points in a /range/ Z^n.
 --
 -- A relation can be considered just a set of points in Z^(m+n).  However,
 -- many functions that operate on relations treat the domain and range
 -- differently.
-
--- Variables are referenced by de Bruijn index.  The order is:
--- [dom_1, dom_2 ... dom_n, rng_1, rng_2 ... rng_m]
--- where rng_1 has the lowest index and dom_m the highest.
 data Rel = Rel
     { relInpDim :: !Int         -- ^ number of variables in the input
     , relOutDim :: !Int         -- ^ the function from input to output
@@ -100,10 +108,16 @@ rel :: Int                         -- ^ Dimensionality of the domain
     -> ([Var] -> [Var] -> BoolExp) -- ^ Predicate on the domain and range
                                    --   defining the relation
     -> Rel
-rel inDim outDim mk_expr = 
-  let (in_v, fv') = splitAt inDim freeVariables
-      out_v       = take outDim fv'
+rel inDim outDim mk_expr =
+  let (in_v, out_v) = takeRelVariables inDim outDim
   in relFromExp inDim outDim $ mk_expr in_v out_v
+
+-- | Get the input and output variables of a relation.
+--   Following the numbering convention, the variable order is reversed.
+takeRelVariables inDim outDim =
+  let (r_out_v, fv') = splitAt outDim freeVariables
+      r_in_v         = take inDim fv'
+  in (reverse r_in_v, reverse r_out_v)
 
 relFromExp inDim outDim expr
     | variablesWithinRange (inDim + outDim) expr =
@@ -116,7 +130,9 @@ relFromExp inDim outDim expr
     | otherwise = error "relFromExp: Variables out of range"
 
 mkOmegaRel inDim outDim expr =
-    L.newOmegaRel inDim outDim $ \dom rng -> expToFormula (dom ++ rng) expr
+    L.newOmegaRel inDim outDim $ \dom rng ->
+      let bindings = rng ++ dom -- Range is innermost
+      in expToFormula bindings expr
 
 -- | Create a relation where each output is a function of the inputs.
 --
@@ -137,14 +153,17 @@ functionalRel dim define_relation =
   relFromExp dim out_dim relationPredicate
     where
       -- Get the defining expressions
-      in_v = take dim freeVariables
-      (mapping, domain_predicate) = define_relation in_v
+      in_v = reverse $ takeFreeVariables dim
+      (mapping_i, domain_predicate_i) = define_relation in_v
+
+      -- Introudce output variables; adjust bindings of input variables
+      out_dim = length mapping_i
+      mapping = map (adjustBindings 0 out_dim) mapping_i
+      domain_predicate = adjustBindings 0 out_dim domain_predicate_i
 
       -- Build the predicate for this relation
-      out_dim = length mapping
-      out_v = take out_dim $ drop dim freeVariables
-
       -- construct the expression domain && rangeVar1 == rangeExp1 && ...
+      out_v = reverse $ takeFreeVariables out_dim
       relationPredicate =
         let mapping_predicates = [varE v |==| e | (v, e) <- zip out_v mapping]
         in conjE (domain_predicate : mapping_predicates)

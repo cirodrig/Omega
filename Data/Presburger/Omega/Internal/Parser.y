@@ -5,6 +5,7 @@ where
 
 import Control.Applicative
 import qualified Data.Map as Map
+
 import Data.Presburger.Omega.Internal.Expr
 import Data.Presburger.Omega.Set(Set, setFromExp)
 import Data.Presburger.Omega.Rel(Rel, relFromExp)
@@ -81,26 +82,20 @@ OptParen(op)
         | Paren(op)                     { $1 }
 
 List(op)
-        : '[' SepBy(',',op) ']'         { $2 }
+        : '[' ']'                       { pure [] }
+        | '[' SepBy(',',op) ']'         { $2 }
 
 SepBy(sep,op)
-        :                               { pure [] }
-        | op StartBy(sep,op)            { liftA2 (:) $1 $2 }
-
-StartBy(sep,op)
-        :                               { pure [] }
-        | sep op StartBy(sep,op)        { liftA2 (:) $2 $3 }
+        : op                            { liftA (:[]) $1 }
+        | op sep SepBy(sep,op)          { liftA2 (:) $1 $3 }
 
 ListPure(op)
-        : '[' SepByPure(',',op) ']'     { $2 }
+        : '[' ']'                       { [] }
+        | '[' SepByPure(',',op) ']'     { $2 }
 
 SepByPure(sep,op)
-        :                               { [] }
-        | op StartByPure(sep,op)        { $1 : $2 }
-
-StartByPure(sep,op)
-        :                               { pure [] }
-        | sep op StartByPure(sep,op)    { $2 : $3 }
+        : op                            { [$1] }
+        | op sep SepByPure(sep,op)      { $1 : $3 }
 
 -- An integer term
 IntTerm : intE OptParen(int)            { pure (intE $2) }
@@ -174,7 +169,9 @@ insertVar name (Env n m) =
 insertVars names (Env n m) =
   let n_names = length names
       shifted = Map.map (n_names +) m
-      extended = foldr (uncurry Map.insert) shifted (zip names [0..])
+      -- The innermost name gets index 0; the outermost gets index n-1 
+      indexed_names = zip names [n_names-1, n_names-2..]
+      extended = foldr (uncurry Map.insert) shifted indexed_names
   in Env (n + n_names) extended
 
 -- Parsing uses an environment of bound variable names

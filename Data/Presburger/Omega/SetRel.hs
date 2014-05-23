@@ -76,11 +76,11 @@ relToExpression s = do
   return (length inVars, length outVars, wrapSimplifiedExpr $ disjExpr cs)
     where
       addEq inVars outVars exVars terms constant =
-          let vars = exVars ++ inVars ++ outVars
+          let vars = exVars ++ outVars ++ inVars
           in (constraintToExpr True vars terms constant :)
 
       addGeq inVars outVars exVars terms constant =
-          let vars = exVars ++ inVars ++ outVars
+          let vars = exVars ++ outVars ++ inVars
           in (constraintToExpr False vars terms constant :)
 
       addConjunct _ _ exVars eqs geqs =

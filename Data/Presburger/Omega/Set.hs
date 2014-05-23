@@ -53,6 +53,17 @@ import Data.Presburger.Omega.Internal.Expr
 import Data.Presburger.Omega.Internal.ShowExpr
 import Data.Presburger.Omega.Internal.ShowUtil
 
+-- de Bruijn numbering of a set's parameters
+--
+-- A set in [dom_1 ... dom_n]
+-- would be written by the user as
+--
+-- > set n $ \[dom1, ..., dom_n] -> ...
+--
+-- Following the convention that the innermost (rightmost) variable has
+-- the lowest index, the parameters are numbered in reverse order:
+-- [dom1 = n-1, dom2 = n-2, ..., dom_n = 0].
+
 -- | Sets of points in Z^n defined by a formula.
 data Set = Set
     { setDim      :: !Int      -- ^ the number of variables
@@ -82,7 +93,9 @@ showSet s = showTerminal "set" `showApp`
 set :: Int                      -- ^ Number of dimensions
     -> ([Var] -> BoolExp)       -- ^ Predicate defining the set
     -> Set
-set dim mk_expr = setFromExp dim (mk_expr $ takeFreeVariables dim)
+set dim mk_expr =
+  let dom_v = reverse $ takeFreeVariables dim -- parameter ordering is reversed
+  in setFromExp dim (mk_expr dom_v)
 
 setFromExp dim expr
     | variablesWithinRange dim expr =
