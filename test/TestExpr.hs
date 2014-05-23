@@ -40,7 +40,7 @@ readTest = TestLabel "Parsing expressions" $
     e2 = 4 *| nthVarE 0 |+| nthVarE 1 |-| 2 *| nthVarE 2
 
 -- Verify that 'read' returns the thing that was shown
-showTest = test $ do
+showTest = TestLabel "(read . show)" $ test $ do
   result <- quickCheckResult $
             forAll (fmap wrapExpr $ arbitraryLinearExpr 3) $ \e ->
             show (e |-| read (show e)) == "intE 0"
