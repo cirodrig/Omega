@@ -1,11 +1,32 @@
+{-| Relations on integer tuples, represented by their characteristic function.
 
--- | Relations whose members are represented compactly using a
--- Presburger arithmetic formula.  This is a high-level interface to
--- 'OmegaRel'.
---
--- This module is intended to be imported qualified, e.g.
---
--- > import qualified Data.Presburger.Omega.Rel as WRel
+Relations can be constructed from their characteristic function,
+given as an 'Exp'.  For example, the relation
+@'rel' 1 2 (\\[z] [x, y] -> varE z |+| varE y |==| varE x)@
+associates a coordinate z with
+the diagonal @(z + y, y)@.  The number 1 gives the dimensionality of the
+relation's input domain, and the number 2 gives the dimensionality of the
+relation's output domain.
+
+A relation can also be constructed from a function that maps inputs to
+outputs, together with a predicate restricting the relation's domain.  For
+example, the relation that maps every coordinate @(x, y)@ to @(y, x)@ can
+be written @'functionalRel' 2 (\\[x, y] -> ([varE y, varE x], trueE))@.
+
+Relations can be queried by transforming them and checking whether the result
+is empty ('lowerBoundSatisfiable') or contains every relation
+('definiteTautology').
+For example, to check whether the relation @r@ maps any values to themselves,
+one can extract the subset of @r@ whose members relate values to themselves
+and check whether that subset is nonempty:
+@'lowerBoundSatisfiable' (r `intersection` functionalRel 1 1 (\\[x] -> varE x)@.
+
+This module is a high-level interface to 'OmegaRel'.
+
+This module is intended to be imported qualified, e.g.
+
+> import qualified Data.Presburger.Omega.Rel as WRel
+-}
 
 module Data.Presburger.Omega.Rel
     (Rel,
@@ -73,7 +94,8 @@ import Data.Presburger.Omega.Internal.Expr
 -- [dom1 = m+n-1, dom2 = m+n-2, ..., dom_n = m,
 --  rng_1 = m-1, rng_2 = m-2, ..., rng_m = 0].
 
--- | A relation from points in a /domain/ Z^m to points in a /range/ Z^n.
+-- | A relation from points in a /domain/ Z^m to points in a /range/ Z^n,
+--   defined by a characteristic function.
 --
 -- A relation can be considered just a set of points in Z^(m+n).  However,
 -- many functions that operate on relations treat the domain and range
@@ -96,9 +118,10 @@ showRel r = showTerminal "rel" `showApp`
              showLambdaBound (relOutDim r) $
              showBoolExpr (getSimplifiedExpr $ relFun r))
 
--- | Create a relation whose members are defined by a predicate.
+-- | @rel d r p@ is a relation from @Z^d@ to @Z^r@, consisting of the
+--   elements that satisfy predicate @p@.
 --
--- For example, a relation that associates a coordinate z with
+-- For example, the relation that associates a coordinate z with
 -- the diagonal @(z + y, y)@ is
 --
 -- > rel 1 2 (\[z] [x, y] -> varE z |+| varE y |==| varE x)
@@ -119,6 +142,9 @@ takeRelVariables inDim outDim =
       r_in_v         = take inDim fv'
   in (reverse r_in_v, reverse r_out_v)
 
+-- | The relation from @Z^d@ to @Z^r@ satisfying the predicate.  The predicate
+--   must only use the first @d+r@ de Bruijn variables.
+relFromExp :: Int -> Int -> BoolExp -> Rel
 relFromExp inDim outDim expr
     | variablesWithinRange (inDim + outDim) expr =
         Rel
@@ -259,21 +285,31 @@ toOmegaRel = relOmegaRel
 predicate :: Rel -> BoolExp
 predicate = relFun
 
+-- | Get the set of values that are in the relation's domain.
 domain :: Rel -> Set
 domain r = useRel (\ptr -> Set.fromOmegaSet =<< L.domain ptr) r
 
+-- | Get the set of values that are in the relation's range.
 range :: Rel -> Set
 range r = useRel (\ptr -> Set.fromOmegaSet =<< L.range ptr) r
 
+-- | True if the relation is nonempty (characteristic function is
+-- satisfiable), treating unknown elements as members.
 lowerBoundSatisfiable :: Rel -> Bool
 lowerBoundSatisfiable = useRel L.lowerBoundSatisfiable
 
+-- | True if the relation is nonempty (characteristic function is
+-- satisfiable), treating unknown elements as nonmembers.
 upperBoundSatisfiable :: Rel -> Bool
 upperBoundSatisfiable = useRel L.upperBoundSatisfiable
 
+-- | True if the relation can cheaply be determined to contain every point
+--   (characteric function is a tautology).
 obviousTautology :: Rel -> Bool
 obviousTautology = useRel L.obviousTautology
 
+-- | True if the relation contains every point
+--   (characteric function is a tautology).
 definiteTautology :: Rel -> Bool
 definiteTautology = useRel L.definiteTautology
 
@@ -382,11 +418,12 @@ transitiveClosure :: Rel -> Rel
 transitiveClosure r =
     useRelRel L.transitiveClosure (relInpDim r) (relOutDim r) r
 
--- | Invert a relation, swapping the domain and range.
+-- | The inverse of a relation.  The inverse is produced by swapping
+--   the domain and range.
 inverse :: Rel -> Rel
 inverse s = useRelRel L.inverse (relOutDim s) (relInpDim s) s
 
--- | Get the complement of a relation.
+-- | The complement of a relation.
 complement :: Rel -> Rel
 complement s = useRelRel L.complement (relInpDim s) (relOutDim s) s
 

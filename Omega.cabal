@@ -9,12 +9,15 @@ Maintainer:		cirodrig@illinois.edu
 Stability:		Alpha
 Synopsis:		Integer sets and relations using Presburger arithmetic
 Description:
-        Sets of integer tuples and relations on integer tuples.
-        Sets and relations are represented compactly by storing their
-        characteristic function as a Presburger arithmetic formula.
-        Formulae are simplified and solved by the Omega Library.
-        The primary interface can be found in
-        "Data.Presburger.Omega.Set" and "Data.Presburger.Omega.Rel".
+        This package provides a way to construct, transform, and query
+        formulas in Presburger arithmetic, which can express integer linear
+        equality and inequality constraints.  The Omega library is used to
+        solve problems.
+
+        The main data structures are sets of tuples of integers, provided in
+        "Data.Presburger.Omega.Set", and relations on tuples of integers,
+        provided in "Data.Presburger.Omega.Rel".  Formulas are created using
+        the functions in "Data.Presburger.Omega.Expr".
 Category:		Data
 Extra-Source-Files:
 	README

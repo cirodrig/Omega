@@ -1,11 +1,29 @@
+{-| Sets of integer tuples, represented by their characteristic function.
 
--- | Sets whose members are represented compactly using a
--- Presburger arithmetic formula.  This is a high-level interface to
--- 'OmegaSet'.
---
--- This module is intended to be imported qualified, e.g.
---
--- > import qualified Data.Presburger.Omega.Set as WSet
+Sets can be constructed from their characteristic function,
+given as an 'Exp'.
+For instance, @'set' 3 (\\[x,y,z] -> varE x |>| varE y |+| varE z)@
+computes the set of all points @(x, y, z)@ where @x > y + z@.
+
+Sets can be queried by transforming them and checking whether the result
+is empty ('lowerBoundSatisfiable') or contains every point
+('definiteTautology').
+For example, to check whether set
+@s@ contains any positive integers, one can check whether its intersection
+with the set of positive values is nonempty:
+@'lowerBoundSatisfiable' (s `intersection` set 1 (\\[x] -> x |>| 0)@.
+
+Some functions cannot always produce a result that is representable as
+a Presburger arithmetic formula.  Internally, an \"UNKNOWN\" term is
+used for terms that can't be represented precisely.  UNKNOWN terms can't
+be constructed directly from expressions.
+
+This module is a high-level interface to 'OmegaSet'.
+
+This module is intended to be imported qualified, e.g.
+
+> import qualified Data.Presburger.Omega.Set as WSet
+-}
 
 module Data.Presburger.Omega.Set
     (Set,
@@ -64,7 +82,7 @@ import Data.Presburger.Omega.Internal.ShowUtil
 -- the lowest index, the parameters are numbered in reverse order:
 -- [dom1 = n-1, dom2 = n-2, ..., dom_n = 0].
 
--- | Sets of points in Z^n defined by a formula.
+-- | A set of points in Z^n defined by a characteristic function.
 data Set = Set
     { setDim      :: !Int      -- ^ the number of variables
     , setExp      :: BoolExp   -- ^ a predicate defining the set
@@ -80,7 +98,7 @@ showSet s = showTerminal "set" `showApp`
             (showLambdaBound (setDim s) $
              showBoolExpr (getSimplifiedExpr $ setExp s))
 
--- | Create a set whose members are defined by a predicate.
+-- | @set n p@ is the subset of @Z^n@ whose members satisfy predicate @p@.
 --
 -- For example, the set of all points on the plane is
 -- 
@@ -97,6 +115,9 @@ set dim mk_expr =
   let dom_v = reverse $ takeFreeVariables dim -- parameter ordering is reversed
   in setFromExp dim (mk_expr dom_v)
 
+-- | The subset of @Z^n@ satisfying the predicate.  The predicate must only
+--   use the first @n@ de Bruijn variables.
+setFromExp :: Int -> BoolExp -> Set
 setFromExp dim expr
     | variablesWithinRange dim expr =
         Set
@@ -106,6 +127,8 @@ setFromExp dim expr
         }
     | otherwise = error "setFromExp: Variables out of range"
 
+-- | Low-level function to create a set of the points satisfying a given
+--   predicate.
 mkOmegaSet :: Int -> BoolExp -> IO OmegaSet
 mkOmegaSet dim expr = L.newOmegaSet dim (\vars -> expToFormula vars expr)
 
@@ -185,15 +208,23 @@ upperBound s = useSetSet L.upperBound (setDim s) s
 lowerBound :: Set -> Set
 lowerBound s = useSetSet L.lowerBound (setDim s) s
 
+-- | True if the set is nonempty (characteristic function is
+-- satisfiable), treating unknown elements as members.
 lowerBoundSatisfiable :: Set -> Bool
 lowerBoundSatisfiable = useSet L.lowerBoundSatisfiable
 
+-- | True if the set is nomempty (characteristic function is
+-- satisfiable), treating unknown elements as nonmembers.
 upperBoundSatisfiable :: Set -> Bool
 upperBoundSatisfiable = useSet L.upperBoundSatisfiable
 
+-- | True if the set can cheaply be determined to contain every point
+--   (characteric function is a tautology).
 obviousTautology :: Set -> Bool
 obviousTautology = useSet L.obviousTautology
 
+-- | True if the set contains every point
+--   (characteric function is a tautology).
 definiteTautology :: Set -> Bool
 definiteTautology = useSet L.definiteTautology
 
@@ -248,8 +279,14 @@ difference s1 s2 = useSet2Set L.difference (setDim s1) s1 s2
 gist :: Effort -> Set -> Set -> Set
 gist effort s1 s2 = useSet2Set (L.gist effort) (setDim s1) s1 s2
 
+-- | The complement of a set.
+--   The complement of @s@ contains exactly the elements that are
+--   not in @s@.
 complement :: Set -> Set
 complement s = useSetSet L.complement (setDim s) s
 
+-- | Approximate a set by allowing all existentially quantified
+-- variables to take on rational values.  This allows these variables to be
+-- eliminated from the formula.
 approximate :: Set -> Set
 approximate s = useSetSet L.approximate (setDim s) s
